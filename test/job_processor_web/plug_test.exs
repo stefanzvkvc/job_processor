@@ -83,8 +83,8 @@ defmodule JobProcessorWeb.PlugTest do
 
     assert %{
              "status" => "error",
-             "message" => "Invalid task",
-             "errors" => %{"name" => ["can't be blank"]}
+             "message" => "Invalid tasks",
+             "errors" => %{"tasks[0]" => %{"name" => ["can't be blank"]}}
            } = Jason.decode!(conn.resp_body)
   end
 
@@ -100,8 +100,8 @@ defmodule JobProcessorWeb.PlugTest do
 
     assert %{
              "status" => "error",
-             "message" => "Invalid task",
-             "errors" => %{"command" => ["can't be blank"]}
+             "message" => "Invalid tasks",
+             "errors" => %{"tasks[0]" => %{"command" => ["can't be blank"]}}
            } = Jason.decode!(conn.resp_body)
   end
 
@@ -117,8 +117,10 @@ defmodule JobProcessorWeb.PlugTest do
 
     assert %{
              "status" => "error",
-             "message" => "Invalid task",
-             "errors" => %{"command" => ["can't be blank"], "name" => ["can't be blank"]}
+             "message" => "Invalid tasks",
+             "errors" => %{
+               "tasks[0]" => %{"command" => ["can't be blank"], "name" => ["can't be blank"]}
+             }
            } = Jason.decode!(conn.resp_body)
   end
 
@@ -138,8 +140,8 @@ defmodule JobProcessorWeb.PlugTest do
 
     assert %{
              "status" => "error",
-             "message" => "Invalid task",
-             "errors" => %{"requires" => ["is invalid"]}
+             "message" => "Invalid tasks",
+             "errors" => %{"tasks[0]" => %{"requires" => ["is invalid"]}}
            } = Jason.decode!(conn.resp_body)
   end
 
@@ -159,8 +161,10 @@ defmodule JobProcessorWeb.PlugTest do
 
     assert %{
              "status" => "error",
-             "message" => "Invalid task",
-             "errors" => %{"requires" => ["cannot be an empty list"]}
+             "message" => "Invalid tasks",
+             "errors" => %{
+               "tasks[0]" => %{"requires" => ["must be a non-empty list of task names"]}
+             }
            } = Jason.decode!(conn.resp_body)
   end
 
@@ -177,8 +181,46 @@ defmodule JobProcessorWeb.PlugTest do
 
     assert %{
              "status" => "error",
-             "message" => "Invalid task",
-             "errors" => %{"command" => ["can't be blank"]}
+             "message" => "Invalid tasks",
+             "errors" => %{"tasks[1]" => %{"command" => ["can't be blank"]}}
+           } = Jason.decode!(conn.resp_body)
+  end
+
+  test "rejects a task when requires contains null" do
+    conn =
+      json_request(:post, "/tasks", %{
+        "tasks" => [%{"name" => "a", "command" => "x", "requires" => ["task-1", nil]}]
+      })
+
+    assert conn.status == 400
+
+    assert %{
+             "errors" => %{
+               "tasks[0]" => %{"requires" => ["must be a non-empty list of task names"]}
+             }
+           } =
+             Jason.decode!(conn.resp_body)
+  end
+
+  test "rejects malformed JSON" do
+    conn = raw_request(:post, "/tasks", ~s({"tasks": [), "application/json")
+    assert conn.status == 400
+
+    assert %{
+             "status" => "error",
+             "message" => "Malformed JSON",
+             "errors" => %{}
+           } = Jason.decode!(conn.resp_body)
+  end
+
+  test "rejects a non-JSON content type" do
+    conn = raw_request(:post, "/tasks", "tasks=task-1", "text/plain")
+    assert conn.status == 415
+
+    assert %{
+             "status" => "error",
+             "message" => "Content-Type must be application/json",
+             "errors" => %{}
            } = Jason.decode!(conn.resp_body)
   end
 
@@ -192,15 +234,19 @@ defmodule JobProcessorWeb.PlugTest do
 
     assert conn.status == 200
 
-    assert %{"status" => "success", "data" => data} =
+    assert %{"status" => "success", "tasks" => %{}} =
              Jason.decode!(conn.resp_body)
-
-    assert data == %{}
   end
 
   defp json_request(method, path, payload) do
     conn(method, path, Jason.encode!(payload))
     |> put_req_header("content-type", "application/json")
+    |> JobProcessorWeb.Plug.call(@opts)
+  end
+
+  defp raw_request(method, path, body, content_type) do
+    conn(method, path, body)
+    |> put_req_header("content-type", content_type)
     |> JobProcessorWeb.Plug.call(@opts)
   end
 end

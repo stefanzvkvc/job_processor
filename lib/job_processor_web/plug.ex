@@ -1,4 +1,5 @@
 defmodule JobProcessorWeb.Plug do
+  alias JobProcessor.{Request, Sorter}
   import Plug.Conn
 
   @allowed_methods ~w(POST)
@@ -17,19 +18,16 @@ defmodule JobProcessorWeb.Plug do
 
   def call(conn, opts) do
     parser_opts = Keyword.fetch!(opts, :parser_opts)
-    conn = Plug.Parsers.call(conn, parser_opts)
-
     method = conn.method
     request_path = conn.request_path
 
     with :ok <- validate_method(method),
          :ok <- validate_path(request_path),
+         {:ok, conn} <- parse_body(conn, parser_opts),
          :ok <- validate_body_params(conn.body_params),
-         :ok <- validate_tasks(conn.body_params) do
-      # call JobProcessor.Sorter
-      # check Accpept header
-      # return response
-      send_json(conn, 200, %{status: :success, data: %{}})
+         {:ok, tasks} <- validate_tasks(conn.body_params["tasks"]),
+         {:ok, sorted} <- sort(tasks) do
+      respond(conn, sorted)
     else
       {:error, status_code, details} ->
         send_json(conn, status_code, Map.put(details, :status, :error))
@@ -41,6 +39,13 @@ defmodule JobProcessorWeb.Plug do
 
   defp validate_path(path) when path in @allowed_paths, do: :ok
   defp validate_path(_), do: error(404, "Not Found")
+
+  defp parse_body(conn, parser_opts) do
+    {:ok, Plug.Parsers.call(conn, parser_opts)}
+  rescue
+    Plug.Parsers.ParseError -> error(400, "Malformed JSON")
+    Plug.Parsers.UnsupportedMediaTypeError -> error(415, "Content-Type must be application/json")
+  end
 
   defp validate_body_params(%{"tasks" => tasks})
        when is_list(tasks) and tasks != [] do
@@ -59,20 +64,34 @@ defmodule JobProcessorWeb.Plug do
     error(400, "Request body must be an object containing a tasks list")
   end
 
-  defp validate_tasks(%{"tasks" => tasks}) do
-    changesets = Enum.map(tasks, &JobProcessor.Request.changeset/1)
+  defp validate_tasks(tasks) do
+    changesets = Enum.map(tasks, &Request.changeset/1)
 
-    case Enum.find(changesets, &(not &1.valid?)) do
-      nil ->
-        :ok
+    errors =
+      for {changeset, i} <- Enum.with_index(changesets), not changeset.valid?, into: %{} do
+        {"tasks[#{i}]", Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)}
+      end
 
-      changeset ->
-        errors =
-          Ecto.Changeset.traverse_errors(changeset, fn {message, _opts} ->
-            message
-          end)
+    if errors == %{},
+      do: {:ok, Enum.map(changesets, &Ecto.Changeset.apply_changes/1)},
+      else: error(400, "Invalid tasks", errors)
+  end
 
-        error(400, "Invalid task", errors)
+  defp sort(tasks) do
+    Sorter.sort(tasks)
+  end
+
+  defp respond(conn, sorted) do
+    if wants_bash?(conn) do
+      script =
+        Enum.map_join(["#!/usr/bin/env bash" | Enum.map(sorted, & &1.command)], "\n", & &1) <>
+          "\n"
+
+      conn
+      |> put_resp_content_type("text/plain")
+      |> send_resp(200, script)
+    else
+      send_json(conn, 200, %{status: :success, tasks: sorted})
     end
   end
 
@@ -80,6 +99,12 @@ defmodule JobProcessorWeb.Plug do
     conn
     |> put_resp_content_type("application/json")
     |> send_resp(status_status, Jason.encode!(data))
+  end
+
+  defp wants_bash?(conn) do
+    conn
+    |> get_req_header("accept")
+    |> Enum.any?(&String.contains?(&1, ["text/plain", "text/x-shellscript"]))
   end
 
   defp error(status_code, message, errors \\ %{}) do

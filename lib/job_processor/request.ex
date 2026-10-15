@@ -21,8 +21,10 @@ defmodule JobProcessor.Request do
 
   defp validate_requires(changeset) do
     case get_change(changeset, :requires) do
-      [] ->
-        add_error(changeset, :requires, "cannot be an empty list")
+      requires when is_list(requires) ->
+        if requires == [] or Enum.member?(requires, nil),
+          do: add_error(changeset, :requires, "must be a non-empty list of task names"),
+          else: changeset
 
       _ ->
         changeset

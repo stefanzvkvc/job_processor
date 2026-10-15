@@ -1,3 +1,6 @@
 defmodule JobProcessor.Sorter do
-  ### TODO
+  @spec sort([map()]) :: {:ok, [map()]} | {:error, String.t()}
+  def sort(_tasks) do
+    {:ok, %{}}
+  end
 end
