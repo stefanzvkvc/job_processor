@@ -86,8 +86,7 @@ defmodule JobProcessorWeb.Plug do
   defp respond(conn, sorted) do
     if wants_bash?(conn) do
       script =
-        Enum.map_join(["#!/usr/bin/env bash" | Enum.map(sorted, & &1["command"])], "\n", & &1) <>
-          "\n"
+        Enum.join(["#!/usr/bin/env bash" | Enum.map(sorted, & &1["command"])], "\n") <> "\n"
 
       conn
       |> put_resp_content_type("text/plain")

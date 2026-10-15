@@ -3,6 +3,7 @@ defmodule JobProcessor.Application do
 
   use Application
 
+  @impl Application
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
