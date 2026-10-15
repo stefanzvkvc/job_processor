@@ -59,7 +59,7 @@ defmodule JobProcessor.RequestTest do
     refute changeset.valid?
 
     errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
-    assert errors.requires == ["must be a non-empty list of task names"]
+    assert errors.requires == ["cannot contain blank or null names"]
   end
 
   test "requires array cannot contain null value" do
@@ -73,6 +73,6 @@ defmodule JobProcessor.RequestTest do
     refute changeset.valid?
 
     errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
-    assert errors.requires == ["must be a non-empty list of task names"]
+    assert errors.requires == ["cannot contain blank or null names"]
   end
 end

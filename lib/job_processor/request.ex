@@ -20,14 +20,18 @@ defmodule JobProcessor.Request do
   end
 
   defp validate_requires(changeset) do
-    case get_change(changeset, :requires) do
+    case changeset.params["requires"] do
       requires when is_list(requires) ->
-        if requires == [] or Enum.member?(requires, nil),
-          do: add_error(changeset, :requires, "must be a non-empty list of task names"),
+        if Enum.any?(requires, &blank?/1),
+          do: add_error(changeset, :requires, "cannot contain blank or null names"),
           else: changeset
 
       _ ->
         changeset
     end
   end
+
+  defp blank?(nil), do: true
+  defp blank?(value) when is_binary(value), do: String.trim(value) == ""
+  defp blank?(_), do: false
 end

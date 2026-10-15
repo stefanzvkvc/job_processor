@@ -4,6 +4,18 @@ defmodule JobProcessorWeb.PlugTest do
   import Plug.Conn
 
   @opts JobProcessorWeb.Plug.init([])
+  @example %{
+    "tasks" => [
+      %{"name" => "task-1", "command" => "touch /tmp/file1"},
+      %{"name" => "task-2", "command" => "cat /tmp/file1", "requires" => ["task-3"]},
+      %{
+        "name" => "task-3",
+        "command" => "echo 'Hello World!' > /tmp/file1",
+        "requires" => ["task-1"]
+      },
+      %{"name" => "task-4", "command" => "rm /tmp/file1", "requires" => ["task-2", "task-3"]}
+    ]
+  }
 
   test "method not allowed" do
     conn = json_request(:get, "/tasks", %{})
@@ -163,7 +175,7 @@ defmodule JobProcessorWeb.PlugTest do
              "status" => "error",
              "message" => "Invalid tasks",
              "errors" => %{
-               "tasks[0]" => %{"requires" => ["must be a non-empty list of task names"]}
+               "tasks[0]" => %{"requires" => ["cannot contain blank or null names"]}
              }
            } = Jason.decode!(conn.resp_body)
   end
@@ -196,7 +208,7 @@ defmodule JobProcessorWeb.PlugTest do
 
     assert %{
              "errors" => %{
-               "tasks[0]" => %{"requires" => ["must be a non-empty list of task names"]}
+               "tasks[0]" => %{"requires" => ["cannot contain blank or null names"]}
              }
            } =
              Jason.decode!(conn.resp_body)
@@ -234,12 +246,95 @@ defmodule JobProcessorWeb.PlugTest do
 
     assert conn.status == 200
 
-    assert %{"status" => "success", "tasks" => %{}} =
+    assert %{
+             "status" => "success",
+             "tasks" => [%{"command" => "touch /tmp/file1", "name" => "task-1"}]
+           } =
              Jason.decode!(conn.resp_body)
   end
 
-  defp json_request(method, path, payload) do
-    conn(method, path, Jason.encode!(payload))
+  test "returns sorted tasks as JSON" do
+    conn = json_request(:post, "/tasks", @example)
+    assert conn.status == 200
+
+    assert %{
+             "status" => "success",
+             "tasks" => [
+               %{"name" => "task-1", "command" => "touch /tmp/file1"},
+               %{"name" => "task-3", "command" => "echo 'Hello World!' > /tmp/file1"},
+               %{"name" => "task-2", "command" => "cat /tmp/file1"},
+               %{"name" => "task-4", "command" => "rm /tmp/file1"}
+             ]
+           } = Jason.decode!(conn.resp_body)
+  end
+
+  test "returns sorted tasks as a bash script" do
+    conn = json_request(:post, "/tasks", @example, [{"accept", "text/plain"}])
+    assert conn.status == 200
+    assert ["text/plain" <> _] = get_resp_header(conn, "content-type")
+
+    assert conn.resp_body == """
+           #!/usr/bin/env bash
+           touch /tmp/file1
+           echo 'Hello World!' > /tmp/file1
+           cat /tmp/file1
+           rm /tmp/file1
+           """
+  end
+
+  test "rejects a circular dependency" do
+    conn =
+      json_request(:post, "/tasks", %{
+        "tasks" => [
+          %{"name" => "a", "command" => "echo a", "requires" => ["b"]},
+          %{"name" => "b", "command" => "echo b", "requires" => ["a"]}
+        ]
+      })
+
+    assert conn.status == 422
+
+    assert %{
+             "status" => "error",
+             "message" => "Circular dependency among: a, b"
+           } = Jason.decode!(conn.resp_body)
+  end
+
+  test "rejects an unknown dependency" do
+    conn =
+      json_request(:post, "/tasks", %{
+        "tasks" => [%{"name" => "a", "command" => "echo a", "requires" => ["ghost"]}]
+      })
+
+    assert conn.status == 422
+
+    assert %{
+             "status" => "error",
+             "message" => "Task a requires unknown task ghost"
+           } = Jason.decode!(conn.resp_body)
+  end
+
+  test "rejects duplicate task names" do
+    conn =
+      json_request(:post, "/tasks", %{
+        "tasks" => [
+          %{"name" => "a", "command" => "echo a"},
+          %{"name" => "a", "command" => "echo again"}
+        ]
+      })
+
+    assert conn.status == 422
+
+    assert %{
+             "status" => "error",
+             "message" => "Duplicate task names: a"
+           } = Jason.decode!(conn.resp_body)
+  end
+
+  defp json_request(method, path, payload, headers \\ []) do
+    conn = conn(method, path, Jason.encode!(payload))
+
+    headers
+    |> Enum.reduce(conn, fn {key, value}, conn -> put_req_header(conn, key, value) end)
     |> put_req_header("content-type", "application/json")
     |> JobProcessorWeb.Plug.call(@opts)
   end

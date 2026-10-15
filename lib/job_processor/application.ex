@@ -6,7 +6,7 @@ defmodule JobProcessor.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
-      {Plug.Cowboy, scheme: :http, plug: JobProcessorWeb.Plug, port: 4040}
+      {Plug.Cowboy, scheme: :http, plug: JobProcessorWeb.Plug, port: 4000}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

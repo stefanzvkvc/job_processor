@@ -25,8 +25,8 @@ defmodule JobProcessorWeb.Plug do
          :ok <- validate_path(request_path),
          {:ok, conn} <- parse_body(conn, parser_opts),
          :ok <- validate_body_params(conn.body_params),
-         {:ok, tasks} <- validate_tasks(conn.body_params["tasks"]),
-         {:ok, sorted} <- sort(tasks) do
+         :ok <- validate_tasks(conn.body_params["tasks"]),
+         {:ok, sorted} <- sort(conn.body_params["tasks"]) do
       respond(conn, sorted)
     else
       {:error, status_code, details} ->
@@ -65,26 +65,28 @@ defmodule JobProcessorWeb.Plug do
   end
 
   defp validate_tasks(tasks) do
-    changesets = Enum.map(tasks, &Request.changeset/1)
-
     errors =
-      for {changeset, i} <- Enum.with_index(changesets), not changeset.valid?, into: %{} do
+      for {task, i} <- Enum.with_index(tasks),
+          changeset = Request.changeset(task),
+          not changeset.valid?,
+          into: %{} do
         {"tasks[#{i}]", Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)}
       end
 
-    if errors == %{},
-      do: {:ok, Enum.map(changesets, &Ecto.Changeset.apply_changes/1)},
-      else: error(400, "Invalid tasks", errors)
+    if errors == %{}, do: :ok, else: error(400, "Invalid tasks", errors)
   end
 
   defp sort(tasks) do
-    Sorter.sort(tasks)
+    case Sorter.sort(tasks) do
+      {:ok, sorted} -> {:ok, sorted}
+      {:error, reason} -> error(422, format_error(reason))
+    end
   end
 
   defp respond(conn, sorted) do
     if wants_bash?(conn) do
       script =
-        Enum.map_join(["#!/usr/bin/env bash" | Enum.map(sorted, & &1.command)], "\n", & &1) <>
+        Enum.map_join(["#!/usr/bin/env bash" | Enum.map(sorted, & &1["command"])], "\n", & &1) <>
           "\n"
 
       conn
@@ -95,10 +97,10 @@ defmodule JobProcessorWeb.Plug do
     end
   end
 
-  defp send_json(conn, status_status, data) do
+  defp send_json(conn, status_code, data) do
     conn
     |> put_resp_content_type("application/json")
-    |> send_resp(status_status, Jason.encode!(data))
+    |> send_resp(status_code, Jason.encode!(data))
   end
 
   defp wants_bash?(conn) do
@@ -110,4 +112,12 @@ defmodule JobProcessorWeb.Plug do
   defp error(status_code, message, errors \\ %{}) do
     {:error, status_code, %{message: message, errors: errors}}
   end
+
+  defp format_error({:duplicate_names, names}),
+    do: "Duplicate task names: #{Enum.join(names, ", ")}"
+
+  defp format_error({:unknown_dependency, task, dep}),
+    do: "Task #{task} requires unknown task #{dep}"
+
+  defp format_error({:cycle, names}), do: "Circular dependency among: #{Enum.join(names, ", ")}"
 end
