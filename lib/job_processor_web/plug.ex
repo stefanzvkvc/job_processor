@@ -22,10 +22,10 @@ defmodule JobProcessorWeb.Plug do
     method = conn.method
     request_path = conn.request_path
 
-    with :ok <- check_method(method),
-         :ok <- check_path(request_path),
-         :ok <- check_body_params(conn.body_params),
-         :ok <- check_tasks(conn.body_params) do
+    with :ok <- validate_method(method),
+         :ok <- validate_path(request_path),
+         :ok <- validate_body_params(conn.body_params),
+         :ok <- validate_tasks(conn.body_params) do
       # call JobProcessor.Sorter
       # check Accpept header
       # return response
@@ -36,13 +36,13 @@ defmodule JobProcessorWeb.Plug do
     end
   end
 
-  defp check_method(method) when method in @allowed_methods, do: :ok
-  defp check_method(_), do: error(405, "Method Not Allowed")
+  defp validate_method(method) when method in @allowed_methods, do: :ok
+  defp validate_method(_), do: error(405, "Method Not Allowed")
 
-  defp check_path(path) when path in @allowed_paths, do: :ok
-  defp check_path(_), do: error(404, "Not Found")
+  defp validate_path(path) when path in @allowed_paths, do: :ok
+  defp validate_path(_), do: error(404, "Not Found")
 
-  defp check_body_params(%{"tasks" => tasks})
+  defp validate_body_params(%{"tasks" => tasks})
        when is_list(tasks) and tasks != [] do
     if Enum.all?(tasks, &is_map/1) do
       :ok
@@ -51,15 +51,15 @@ defmodule JobProcessorWeb.Plug do
     end
   end
 
-  defp check_body_params(%{"tasks" => _}) do
+  defp validate_body_params(%{"tasks" => _}) do
     error(400, "The tasks field must be a non-empty list")
   end
 
-  defp check_body_params(_body_params) do
+  defp validate_body_params(_body_params) do
     error(400, "Request body must be an object containing a tasks list")
   end
 
-  defp check_tasks(%{"tasks" => tasks}) do
+  defp validate_tasks(%{"tasks" => tasks}) do
     changesets = Enum.map(tasks, &JobProcessor.Request.changeset/1)
 
     case Enum.find(changesets, &(not &1.valid?)) do
