@@ -26,6 +26,9 @@ defmodule JobProcessorWeb.Plug do
          :ok <- check_path(request_path),
          :ok <- check_body_params(conn.body_params),
          :ok <- check_tasks(conn.body_params) do
+      # call JobProcessor.Sorter
+      # check Accpept header
+      # return response
       send_json(conn, 200, %{status: :success, data: %{}})
     else
       {:error, status_code, details} ->
