@@ -5,76 +5,31 @@ defmodule JobProcessorWeb.PlugTest do
 
   @opts JobProcessorWeb.Plug.init([])
 
-  test "202: accepts valid tasks payload" do
-    payload =
-      Jason.encode!(%{
-        "tasks" => [
-          %{"name" => "task-1", "command" => "touch /tmp/file1"},
-          %{"name" => "task-2", "command" => "cat /tmp/file1"}
-        ]
-      })
+  test "200" do
+    conn = json_request(:post, "/tasks", %{})
 
-    conn =
-      conn(:post, "/", payload)
-      |> put_req_header("content-type", "application/json")
-      |> put_req_header("x-request-id", "req-123")
-      |> JobProcessorWeb.Plug.call(@opts)
-
-    assert conn.status == 202
-    assert Jason.decode!(conn.resp_body) == %{"status" => "accepted", "request_id" => "req-123"}
+    assert conn.status == 200
+    assert %{"status" => "success", "data" => data} = Jason.decode!(conn.resp_body)
+    assert data == %{}
   end
 
-  test "202: skips empty objects but successfully processes surrounding valid maps" do
-    payload =
-      Jason.encode!(%{
-        "tasks" => [
-          %{},
-          %{"name" => "task-1", "command" => "touch /tmp/file1"},
-          %{}
-        ]
-      })
+  test "405" do
+    conn = json_request(:get, "/tasks", %{})
+    assert conn.status == 405
 
-    conn =
-      conn(:post, "/", payload)
-      |> put_req_header("content-type", "application/json")
-      |> put_req_header("x-request-id", "req-123")
-      |> JobProcessorWeb.Plug.call(@opts)
-
-    assert conn.status == 202
+    assert %{"status" => "error", "message" => "Method Not Allowed"} =
+             Jason.decode!(conn.resp_body)
   end
 
-  test "400: fails when non-map types (like strings) are mixed into the tasks list" do
-    payload =
-      Jason.encode!(%{
-        "tasks" => [
-          %{"name" => "task-1", "command" => "touch /tmp/file1"},
-          "malicious_string"
-        ]
-      })
-
-    conn =
-      conn(:post, "/", payload)
-      |> put_req_header("content-type", "application/json")
-      |> put_req_header("x-request-id", "req-123")
-      |> JobProcessorWeb.Plug.call(@opts)
-
-    assert conn.status == 400
-    response = Jason.decode!(conn.resp_body)
-    assert response["status"] == "error"
-    assert response["message"] == "Missing mandatory fields"
+  test "404" do
+    conn = json_request(:post, "/unhandled", %{})
+    assert conn.status == 404
+    assert %{"status" => "error", "message" => "Not Found"} = Jason.decode!(conn.resp_body)
   end
 
-  test "400: skips empty objects but fails if nothing else is left in the list" do
-    payload = Jason.encode!(%{"tasks" => [%{}]})
-
-    conn =
-      conn(:post, "/", payload)
-      |> put_req_header("content-type", "application/json")
-      |> put_req_header("x-request-id", "req-123")
-      |> JobProcessorWeb.Plug.call(@opts)
-
-    assert conn.status == 400
-    response = Jason.decode!(conn.resp_body)
-    assert response["message"] == "Task list can't be empty"
+  defp json_request(method, path, payload) do
+    conn(method, path, Jason.encode!(payload))
+    |> put_req_header("content-type", "application/json")
+    |> JobProcessorWeb.Plug.call(@opts)
   end
 end

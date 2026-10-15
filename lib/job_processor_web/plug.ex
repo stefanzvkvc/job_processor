@@ -1,6 +1,9 @@
 defmodule JobProcessorWeb.Plug do
   import Plug.Conn
 
+  @allowed_methods ~w(POST)
+  @allowed_paths ~w(/tasks)
+
   def init(options) do
     parser_opts =
       Plug.Parsers.init(
@@ -16,51 +19,30 @@ defmodule JobProcessorWeb.Plug do
     parser_opts = Keyword.fetch!(opts, :parser_opts)
     conn = Plug.Parsers.call(conn, parser_opts)
 
-    with {:ok, request_id} <- fetch_request_id(conn),
-         {:ok, tasks} <- fetch_tasks(conn.body_params),
-         :ok <- validate_required(tasks) do
-      send_json(conn, 202, %{status: "accepted", request_id: request_id})
+    method = conn.method
+    request_path = conn.request_path
+
+    with :ok <- check_method(method),
+         :ok <- check_path(request_path) do
+      send_json(conn, 200, %{status: :success, data: %{}})
     else
-      {:error, message} ->
-        send_json(conn, 400, %{
-          status: "error",
+      {:error, status_code, message} ->
+        send_json(conn, status_code, %{
+          status: :error,
           message: message
         })
     end
   end
 
-  defp send_json(conn, status, data) do
+  defp check_method(method) when method in @allowed_methods, do: :ok
+  defp check_method(_), do: {:error, 405, "Method Not Allowed"}
+
+  defp check_path(path) when path in @allowed_paths, do: :ok
+  defp check_path(_), do: {:error, 404, "Not Found"}
+
+  defp send_json(conn, status_status, data) do
     conn
     |> put_resp_content_type("application/json")
-    |> send_resp(status, Jason.encode!(data))
+    |> send_resp(status_status, Jason.encode!(data))
   end
-
-  defp fetch_request_id(conn) do
-    case get_req_header(conn, "x-request-id") do
-      [request_id | _] -> {:ok, request_id}
-      _ -> {:error, "Missing mandatory HTTP header: X-Request-Id"}
-    end
-  end
-
-  defp fetch_tasks(%{"tasks" => tasks = [_ | _]}) do
-    tasks
-    |> Enum.reject(&(&1 == %{}))
-    |> case do
-      [] -> {:error, "Task list can't be empty"}
-      tasks -> {:ok, tasks}
-    end
-  end
-
-  defp fetch_tasks(%{"tasks" => []}), do: {:error, "Task list can't be empty"}
-
-  defp fetch_tasks(%{"tasks" => _invalid_type}),
-    do: {:error, "Invalid tasks format, must be a list"}
-
-  defp fetch_tasks(_other_payload), do: {:error, "Invalid payload"}
-
-  defp validate_required([%{"name" => _name, "command" => _command} | tasks]),
-    do: validate_required(tasks)
-
-  defp validate_required([]), do: :ok
-  defp validate_required(_other), do: {:error, "Missing mandatory fields"}
 end
