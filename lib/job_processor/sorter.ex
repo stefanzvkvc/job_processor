@@ -19,32 +19,32 @@ defmodule JobProcessor.Sorter do
   defp order(remaining, done, sorted) do
     case Enum.find(remaining, &ready?(&1, done)) do
       nil ->
-        {:error, {:cycle, Enum.map(remaining, & &1["name"])}}
+        {:error, {:cycle, Enum.map(remaining, & &1.name)}}
 
       task ->
         order(
           List.delete(remaining, task),
-          MapSet.put(done, task["name"]),
-          [Map.take(task, ["name", "command"]) | sorted]
+          MapSet.put(done, task.name),
+          [task | sorted]
         )
     end
   end
 
   defp ready?(task, done), do: Enum.all?(requires(task), &MapSet.member?(done, &1))
 
-  defp requires(task), do: task["requires"] || []
+  defp requires(task), do: task.requires || []
 
   defp check_duplicates(tasks) do
-    case for {name, n} <- Enum.frequencies_by(tasks, & &1["name"]), n > 1, do: name do
+    case for {name, n} <- Enum.frequencies_by(tasks, & &1.name), n > 1, do: name do
       [] -> :ok
       dupes -> {:error, {:duplicate_names, Enum.sort(dupes)}}
     end
   end
 
   defp check_unknown_dependencies(tasks) do
-    names = MapSet.new(tasks, & &1["name"])
+    names = MapSet.new(tasks, & &1.name)
 
-    case for t <- tasks, dep <- requires(t), not MapSet.member?(names, dep), do: {t["name"], dep} do
+    case for t <- tasks, dep <- requires(t), not MapSet.member?(names, dep), do: {t.name, dep} do
       [] -> :ok
       [{task, dep} | _] -> {:error, {:unknown_dependency, task, dep}}
     end

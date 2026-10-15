@@ -235,6 +235,6 @@ Two further limits would keep the synchronous design safe with large inputs:
 
 The test suite covers:
 
-- **The sorter:** ordering of the challenge example, input order for independent tasks, `null` dependencies, and each error (duplicates, unknown dependency, cycle).
+- **The sorter:** ordering of the challenge example, input order for independent tasks, and each error (duplicates, unknown dependency, cycle).
 - **Task validation:** required fields, blank values, and invalid or blank `requires` entries.
 - **The Plug:** method and path checks, malformed JSON, unsupported content types, body structure, task field validation, the `422` dependency errors, and successful JSON and bash responses.

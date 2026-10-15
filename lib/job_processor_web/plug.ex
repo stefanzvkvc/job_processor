@@ -25,8 +25,8 @@ defmodule JobProcessorWeb.Plug do
          :ok <- validate_path(request_path),
          {:ok, conn} <- parse_body(conn, parser_opts),
          :ok <- validate_body_params(conn.body_params),
-         :ok <- validate_tasks(conn.body_params["tasks"]),
-         {:ok, sorted} <- sort(conn.body_params["tasks"]) do
+         {:ok, tasks} <- validate_tasks(conn.body_params["tasks"]),
+         {:ok, sorted} <- sort(tasks) do
       respond(conn, sorted)
     else
       {:error, status_code, details} ->
@@ -65,15 +65,16 @@ defmodule JobProcessorWeb.Plug do
   end
 
   defp validate_tasks(tasks) do
+    changesets = Enum.map(tasks, &Request.changeset/1)
+
     errors =
-      for {task, i} <- Enum.with_index(tasks),
-          changeset = Request.changeset(task),
-          not changeset.valid?,
-          into: %{} do
+      for {changeset, i} <- Enum.with_index(changesets), not changeset.valid?, into: %{} do
         {"tasks[#{i}]", Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)}
       end
 
-    if errors == %{}, do: :ok, else: error(400, "Invalid tasks", errors)
+    if errors == %{},
+      do: {:ok, Enum.map(changesets, &Ecto.Changeset.apply_changes/1)},
+      else: error(400, "Invalid tasks", errors)
   end
 
   defp sort(tasks) do
@@ -86,13 +87,16 @@ defmodule JobProcessorWeb.Plug do
   defp respond(conn, sorted) do
     if wants_bash?(conn) do
       script =
-        Enum.join(["#!/usr/bin/env bash" | Enum.map(sorted, & &1["command"])], "\n") <> "\n"
+        Enum.join(["#!/usr/bin/env bash" | Enum.map(sorted, & &1.command)], "\n") <> "\n"
 
       conn
       |> put_resp_content_type("text/plain")
       |> send_resp(200, script)
     else
-      send_json(conn, 200, %{status: :success, tasks: sorted})
+      send_json(conn, 200, %{
+        status: :success,
+        tasks: Enum.map(sorted, &Map.take(&1, [:name, :command]))
+      })
     end
   end
 
