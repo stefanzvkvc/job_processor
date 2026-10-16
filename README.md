@@ -221,9 +221,9 @@ The sorter repeatedly takes the first remaining task whose dependencies are all 
 
 - **Deterministic:** Tasks are scanned in input order, so independent tasks keep their submitted order, and the same input always produces the same output.
 - **Simple to verify:** A task is only emitted after all of its dependencies have been emitted.
-- **Complexity:** Roughly O(n²) for n tasks, which is instant for realistic job sizes. I kept this version for readability. For very large jobs, there are two faster options:
-  - **Kahn's algorithm** with an in-degree map and `:queue`.
-  - **Erlang's `:digraph_utils.topsort/1`**, which needs no extra dependency.
+- **Complexity:** Each step scans the remaining tasks and checks their `requires` lists, so the cost grows with the number of tasks times the total number of dependencies. Realistic jobs sort in milliseconds. The worst case I could construct, 1,000 tasks with long `requires` lists in a body just under the 1 MB limit, took about 1.4 seconds when measured. I kept this version for readability. There are two near-linear alternatives:
+  - **Kahn's algorithm** with an in-degree map. Keeping independent tasks in input order would need a priority queue of input positions, such as `:gb_sets`, instead of a plain `:queue`.
+  - **Erlang's `:digraph_utils.topsort/1`**, which needs no extra dependency but does not keep independent tasks in input order.
 - **Trade-off:** The cycle error lists every task that can never run, which can include tasks that only depend on a cycle rather than being part of it. A depth-first search could report the exact loop, at the cost of more complex code.
 
 Duplicate names and unknown dependencies are checked before sorting, so the sorting loop only has to deal with valid tasks.
@@ -277,7 +277,7 @@ In production, a service like this would usually sit behind an API gateway that 
 The service already enforces these limits:
 
 - **Request body size: 1 MB.** `Plug.Parsers` accepts up to 8 MB by default. A realistic job of 1,000 tasks is around 200 KB, so 1 MB leaves headroom while stopping one request from tying up the server. Larger bodies return `413`.
-- **Maximum number of tasks: 1,000.** This bounds the sorter's O(n²) worst case to about a million cheap steps, which still finishes in milliseconds. Larger jobs return `400`.
+- **Maximum number of tasks: 1,000.** Together with the body size limit, this bounds the sorter's worst case to about 1.4 seconds for a deliberately crafted request (see [Sorting algorithm](#sorting-algorithm)). Larger jobs return `400`.
 - **Maximum connections: 1,000.** Cowboy's connection limit is set explicitly, so the server's capacity is a deliberate choice rather than a hidden default.
 - **Timeouts.** Headers must arrive within 5 seconds, and a connection that sends nothing for 15 seconds is closed instead of after Cowboy's default 60. This also covers a client that stops sending its body partway through. Together with the connection limit, this stops slow clients from holding connections open indefinitely.
 
