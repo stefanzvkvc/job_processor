@@ -8,9 +8,10 @@ A lightweight Elixir application that exposes an HTTP endpoint for submitting jo
 
 ### Requirements
 
-- Elixir
-- Erlang/OTP
-- Mix
+- Elixir 1.19 or later
+- Erlang/OTP 28
+
+Alternatively, use Docker (see [Running with Docker](#running-with-docker)), which needs no local Elixir installation.
 
 ### Install dependencies
 
@@ -41,7 +42,7 @@ The image is built in two stages. The first compiles the app into a `mix release
 
 ### Example payload
 
-Save the challenge example as `example.json`:
+The repository includes the challenge example as `example.json`, so the commands below work from the project root:
 
 ```json
 {
