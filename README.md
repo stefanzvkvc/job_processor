@@ -77,6 +77,7 @@ Response (`200 OK`, `text/plain`):
 
 ```bash
 #!/usr/bin/env bash
+set -e
 touch /tmp/file1
 echo 'Hello World!' > /tmp/file1
 cat /tmp/file1
@@ -146,6 +147,19 @@ The response format is chosen from the request's `Accept` header:
 - Anything else, including a missing header or `*/*` (curl's default), returns JSON.
 
 The bash script is returned without the JSON envelope, so it can be piped directly into `bash`. Errors are always returned as JSON.
+
+### Stopping on the first failure
+
+I was thinking: what if one of the commands fails when the script runs? By default, bash ignores the failure and moves on to the next line. That breaks the whole point of the ordering: a task would still run even though a task it depends on just failed.
+
+For example, if a job backs up a database and then drops it, a failed backup should never be followed by the drop:
+
+```bash
+pg_dump mydb > backup.sql   # fails
+dropdb mydb                 # without set -e, this still runs
+```
+
+So the generated script starts with `set -e`, which makes bash stop at the first command that fails. The tasks that depend on a failed task never run.
 
 ### Request validation
 

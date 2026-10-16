@@ -275,6 +275,7 @@ defmodule JobProcessorWeb.PlugTest do
 
     assert conn.resp_body == """
            #!/usr/bin/env bash
+           set -e
            touch /tmp/file1
            echo 'Hello World!' > /tmp/file1
            cat /tmp/file1
