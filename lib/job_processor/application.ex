@@ -9,7 +9,12 @@ defmodule JobProcessor.Application do
     port = Application.fetch_env!(:job_processor, :port)
 
     children = [
-      {Plug.Cowboy, scheme: :http, plug: JobProcessorWeb.Plug, port: port}
+      {Plug.Cowboy,
+       scheme: :http,
+       plug: JobProcessorWeb.Plug,
+       port: port,
+       transport_options: [max_connections: 1_000],
+       protocol_options: [idle_timeout: 15_000, request_timeout: 5_000]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

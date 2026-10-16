@@ -39,6 +39,22 @@ defmodule JobProcessorWeb.PlugTest do
            } = Jason.decode!(conn.resp_body)
   end
 
+  test "rejects too many tasks" do
+    tasks = for i <- 1..1001, do: %{"name" => "t#{i}", "command" => "echo #{i}"}
+    conn = json_request(:post, "/tasks", %{"tasks" => tasks})
+
+    assert conn.status == 400
+    assert %{"message" => "A job can contain at most 1000 tasks"} = Jason.decode!(conn.resp_body)
+  end
+
+  test "rejects a body that is too large" do
+    command = String.duplicate("x", 1_000_001)
+
+    conn = json_request(:post, "/tasks", %{"tasks" => [%{"name" => "a", "command" => command}]})
+
+    assert conn.status == 413
+  end
+
   test "rejects a missing tasks field" do
     conn = json_request(:post, "/tasks", %{})
     assert conn.status == 400

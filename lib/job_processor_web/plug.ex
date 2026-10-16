@@ -4,13 +4,17 @@ defmodule JobProcessorWeb.Plug do
 
   @allowed_methods ~w(POST)
   @allowed_paths ~w(/tasks)
+  @max_body_bytes 1_000_000
+  @max_tasks 1_000
 
   def init(options) do
     parser_opts =
       Plug.Parsers.init(
         parsers: [:json],
         pass: ["application/json"],
-        json_decoder: Jason
+        json_decoder: Jason,
+        length: @max_body_bytes,
+        read_timeout: 5_000
       )
 
     Keyword.put(options, :parser_opts, parser_opts)
@@ -44,7 +48,13 @@ defmodule JobProcessorWeb.Plug do
     {:ok, Plug.Parsers.call(conn, parser_opts)}
   rescue
     Plug.Parsers.ParseError -> error(400, "Malformed JSON")
+    Plug.Parsers.RequestTooLargeError -> error(413, "Request body is too large")
     Plug.Parsers.UnsupportedMediaTypeError -> error(415, "Content-Type must be application/json")
+  end
+
+  defp validate_body_params(%{"tasks" => tasks})
+       when is_list(tasks) and length(tasks) > @max_tasks do
+    error(400, "A job can contain at most #{@max_tasks} tasks")
   end
 
   defp validate_body_params(%{"tasks" => tasks})

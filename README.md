@@ -165,8 +165,8 @@ So the generated script starts with `set -e`, which makes bash stop at the first
 
 Request validation happens in stages, each with its own status code:
 
-1. **Body parsing:** Malformed JSON returns `400`. A non-JSON `Content-Type` returns `415`.
-2. **Body structure:** The body must contain a non-empty `tasks` list, and each item must be a JSON object (`400`).
+1. **Body parsing:** Malformed JSON returns `400`. A non-JSON `Content-Type` returns `415`. A body larger than 1 MB returns `413`.
+2. **Body structure:** The body must contain a non-empty `tasks` list of at most 1,000 items, and each item must be a JSON object (`400`).
 3. **Task fields:** Each task is validated with an embedded Ecto schema and changeset (`400`). Errors are reported for every invalid task, keyed by its position, for example `tasks[1]`.
 4. **Dependencies:** The sorter rejects duplicate task names, unknown dependencies and circular dependencies (`422`).
 
@@ -226,9 +226,10 @@ All JSON responses share the same structure:
 | Status | Meaning |
 | --- | --- |
 | `200` | Tasks sorted |
-| `400` | Malformed JSON, invalid body structure or invalid task fields |
+| `400` | Malformed JSON, invalid body structure, too many tasks or invalid task fields |
 | `404` | Unknown path |
 | `405` | Method other than `POST` |
+| `413` | Request body larger than 1 MB |
 | `415` | `Content-Type` is not `application/json` |
 | `422` | Duplicate names, unknown dependency or circular dependency |
 
@@ -240,10 +241,12 @@ The service never executes commands. It only orders them and returns them. Runni
 
 In production, a service like this would usually sit behind an API gateway that handles rate limiting, blocks abusive clients and drops malicious traffic before it reaches the application. The challenge doesn't include that layer, so within the service itself I would add rate limiting per client IP with the [Hammer](https://hex.pm/packages/hammer) library to protect against request floods.
 
-Two further limits would keep the synchronous design safe with large inputs:
+The service already enforces these limits:
 
-- **Request size limit.** `Plug.Parsers` accepts bodies up to 8 MB by default. Lowering it with the `:length` option keeps one request from tying up the server.
-- **Maximum number of tasks.** Capping the task count keeps the sorter's worst case bounded.
+- **Request body size: 1 MB.** `Plug.Parsers` accepts up to 8 MB by default. A realistic job of 1,000 tasks is around 200 KB, so 1 MB leaves headroom while stopping one request from tying up the server. Larger bodies return `413`.
+- **Maximum number of tasks: 1,000.** This bounds the sorter's O(n²) worst case to about a million cheap steps, which still finishes in milliseconds. Larger jobs return `400`.
+- **Maximum connections: 1,000.** Cowboy's connection limit is set explicitly, so the server's capacity is a deliberate choice rather than a hidden default.
+- **Timeouts.** Headers must arrive within 5 seconds and each chunk of the body within 5 seconds, and idle connections close after 15 seconds instead of Cowboy's default 60. Together with the connection limit, this stops slow clients from holding connections open indefinitely.
 
 ### Testing
 
