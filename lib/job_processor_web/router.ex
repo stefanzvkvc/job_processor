@@ -97,7 +97,7 @@ defmodule JobProcessorWeb.Router do
 
     if errors == %{},
       do: {:ok, Enum.map(changesets, &Ecto.Changeset.apply_changes/1)},
-      else: error(400, "Invalid tasks", errors)
+      else: error(422, "Invalid tasks", errors)
   end
 
   defp sort(tasks) do

@@ -194,8 +194,10 @@ Request validation happens in stages, each with its own status code:
 
 1. **Body parsing:** Malformed JSON returns `400`. A missing or non-JSON `Content-Type` returns `415`. A body larger than 1 MB returns `413`.
 2. **Body structure:** The body must contain a non-empty `tasks` list of at most 1,000 items, and each item must be a JSON object (`400`).
-3. **Task fields:** Each task is validated with an embedded Ecto schema and changeset (`400`). Errors are reported for every invalid task, keyed by its position, for example `tasks[1]`.
+3. **Task fields:** Each task is validated with an embedded Ecto schema and changeset (`422`). Errors are reported for every invalid task, keyed by its position, for example `tasks[1]`.
 4. **Dependencies:** The sorter rejects duplicate task names, unknown dependencies and circular dependencies (`422`).
+
+The status codes follow one rule. `400` means the body is not a usable job document at all: malformed JSON, the wrong shape, or too many items. `422` means the body is a well-formed job whose content is invalid, whether that is a bad task field or a bad dependency. This matches the Phoenix convention of returning `422` for changeset errors.
 
 This separation keeps HTTP request handling distinct from task-specific validation and makes each set of rules easier to test and maintain.
 
@@ -253,12 +255,12 @@ All JSON responses share the same structure:
 | Status | Meaning |
 | --- | --- |
 | `200` | Tasks sorted |
-| `400` | Malformed JSON, invalid body structure, too many tasks or invalid task fields |
+| `400` | Malformed JSON, invalid body structure or too many tasks |
 | `404` | Unknown path |
 | `405` | Method other than `POST` on `/jobs` |
 | `413` | Request body larger than 1 MB |
 | `415` | `Content-Type` is missing or not `application/json` |
-| `422` | Duplicate names, unknown dependency or circular dependency |
+| `422` | Invalid task fields, duplicate names, unknown dependency or circular dependency |
 
 This allows clients to handle errors consistently without having to parse language-specific error representations.
 
@@ -281,4 +283,4 @@ The test suite covers:
 
 - **The sorter:** ordering of the challenge example, input order for independent tasks, and each error (duplicates, unknown dependency, cycle).
 - **Task validation:** required fields, blank values, and invalid or blank `requires` entries.
-- **The router:** method and path checks, malformed JSON, unsupported content types, body structure, task field validation, the `422` dependency errors, and successful JSON and bash responses.
+- **The router:** method and path checks, malformed JSON, unsupported content types, body structure, the `422` task field and dependency errors, and successful JSON and bash responses.

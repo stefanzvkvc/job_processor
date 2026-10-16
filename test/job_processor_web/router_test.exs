@@ -109,7 +109,7 @@ defmodule JobProcessorWeb.RouterTest do
         ]
       })
 
-    assert conn.status == 400
+    assert conn.status == 422
 
     assert %{
              "status" => "error",
