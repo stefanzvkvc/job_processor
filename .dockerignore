@@ -1,0 +1,7 @@
+_build
+deps
+priv/plts
+.git
+.elixir_ls
+cover
+doc

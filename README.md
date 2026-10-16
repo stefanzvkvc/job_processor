@@ -26,6 +26,17 @@ mix run --no-halt
 
 The server listens on port `4000` by default. Set the `PORT` environment variable to change it.
 
+### Running with Docker
+
+No local Elixir installation is needed:
+
+```bash
+docker build -t job_processor .
+docker run --rm -p 4000:4000 job_processor
+```
+
+The image is built in two stages. The first compiles the app into a `mix release`. The second copies only that release into a slim Debian image, which runs it as a non-root user.
+
 ### Example payload
 
 Save the challenge example as `example.json`:
