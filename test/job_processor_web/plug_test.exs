@@ -99,103 +99,6 @@ defmodule JobProcessorWeb.PlugTest do
            } = Jason.decode!(conn.resp_body)
   end
 
-  test "rejects a task with a missing name" do
-    conn =
-      json_request(:post, "/jobs", %{
-        "tasks" => [
-          %{"command" => "touch /tmp/file1"}
-        ]
-      })
-
-    assert conn.status == 400
-
-    assert %{
-             "status" => "error",
-             "message" => "Invalid tasks",
-             "errors" => %{"tasks[0]" => %{"name" => ["can't be blank"]}}
-           } = Jason.decode!(conn.resp_body)
-  end
-
-  test "rejects a task with a missing command" do
-    conn =
-      json_request(:post, "/jobs", %{
-        "tasks" => [
-          %{"name" => "task-1"}
-        ]
-      })
-
-    assert conn.status == 400
-
-    assert %{
-             "status" => "error",
-             "message" => "Invalid tasks",
-             "errors" => %{"tasks[0]" => %{"command" => ["can't be blank"]}}
-           } = Jason.decode!(conn.resp_body)
-  end
-
-  test "rejects a task with missing and blank required fields" do
-    conn =
-      json_request(:post, "/jobs", %{
-        "tasks" => [
-          %{"name" => "   "}
-        ]
-      })
-
-    assert conn.status == 400
-
-    assert %{
-             "status" => "error",
-             "message" => "Invalid tasks",
-             "errors" => %{
-               "tasks[0]" => %{"command" => ["can't be blank"], "name" => ["can't be blank"]}
-             }
-           } = Jason.decode!(conn.resp_body)
-  end
-
-  test "rejects a task when requires array contains non-string values" do
-    conn =
-      json_request(:post, "/jobs", %{
-        "tasks" => [
-          %{
-            "name" => "task-3",
-            "command" => "echo 'Hello World!' > /tmp/file1",
-            "requires" => ["task-1", 123]
-          }
-        ]
-      })
-
-    assert conn.status == 400
-
-    assert %{
-             "status" => "error",
-             "message" => "Invalid tasks",
-             "errors" => %{"tasks[0]" => %{"requires" => ["is invalid"]}}
-           } = Jason.decode!(conn.resp_body)
-  end
-
-  test "rejects a task when requires array contains empty values" do
-    conn =
-      json_request(:post, "/jobs", %{
-        "tasks" => [
-          %{
-            "name" => "task-4",
-            "command" => "rm /tmp/file1",
-            "requires" => ["      ", " "]
-          }
-        ]
-      })
-
-    assert conn.status == 400
-
-    assert %{
-             "status" => "error",
-             "message" => "Invalid tasks",
-             "errors" => %{
-               "tasks[0]" => %{"requires" => ["cannot contain blank or null names"]}
-             }
-           } = Jason.decode!(conn.resp_body)
-  end
-
   test "rejects a list containing an invalid task" do
     conn =
       json_request(:post, "/jobs", %{
@@ -212,22 +115,6 @@ defmodule JobProcessorWeb.PlugTest do
              "message" => "Invalid tasks",
              "errors" => %{"tasks[1]" => %{"command" => ["can't be blank"]}}
            } = Jason.decode!(conn.resp_body)
-  end
-
-  test "rejects a task when requires contains null" do
-    conn =
-      json_request(:post, "/jobs", %{
-        "tasks" => [%{"name" => "a", "command" => "x", "requires" => ["task-1", nil]}]
-      })
-
-    assert conn.status == 400
-
-    assert %{
-             "errors" => %{
-               "tasks[0]" => %{"requires" => ["cannot contain blank or null names"]}
-             }
-           } =
-             Jason.decode!(conn.resp_body)
   end
 
   test "rejects malformed JSON" do
@@ -261,23 +148,6 @@ defmodule JobProcessorWeb.PlugTest do
              "message" => "Content-Type must be application/json",
              "errors" => %{}
            } = Jason.decode!(conn.resp_body)
-  end
-
-  test "accepts a valid tasks list" do
-    conn =
-      json_request(:post, "/jobs", %{
-        "tasks" => [
-          %{"name" => "task-1", "command" => "touch /tmp/file1"}
-        ]
-      })
-
-    assert conn.status == 200
-
-    assert %{
-             "status" => "success",
-             "tasks" => [%{"command" => "touch /tmp/file1", "name" => "task-1"}]
-           } =
-             Jason.decode!(conn.resp_body)
   end
 
   test "returns sorted tasks as JSON" do

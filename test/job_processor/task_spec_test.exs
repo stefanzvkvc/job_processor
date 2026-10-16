@@ -48,7 +48,7 @@ defmodule JobProcessor.TaskSpecTest do
     assert errors.requires == ["is invalid"]
   end
 
-  test "requires array cannot be empty list" do
+  test "requires array cannot contain blank names" do
     params = %{
       "name" => "task-4",
       "command" => "rm /tmp/file1",
