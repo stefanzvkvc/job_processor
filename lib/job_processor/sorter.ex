@@ -7,6 +7,14 @@ defmodule JobProcessor.Sorter do
   Tasks with no dependency between them keep their input order.
   """
 
+  alias JobProcessor.TaskSpec
+
+  @type error ::
+          {:duplicate_names, [String.t()]}
+          | {:unknown_dependency, task :: String.t(), dependency :: String.t()}
+          | {:cycle, [String.t()]}
+
+  @spec sort([TaskSpec.t()]) :: {:ok, [TaskSpec.t()]} | {:error, error()}
   def sort(tasks) do
     with :ok <- check_duplicates(tasks),
          :ok <- check_unknown_dependencies(tasks) do

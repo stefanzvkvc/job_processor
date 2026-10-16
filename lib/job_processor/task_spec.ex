@@ -5,6 +5,12 @@ defmodule JobProcessor.TaskSpec do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{
+          name: String.t() | nil,
+          command: String.t() | nil,
+          requires: [String.t()] | nil
+        }
+
   @primary_key false
   embedded_schema do
     field(:name, :string)
@@ -12,6 +18,7 @@ defmodule JobProcessor.TaskSpec do
     field(:requires, {:array, :string})
   end
 
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(schema \\ %__MODULE__{}, params) do
     schema
     |> cast(params, [:name, :command, :requires])
