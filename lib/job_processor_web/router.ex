@@ -12,7 +12,6 @@ defmodule JobProcessorWeb.Router do
   @max_tasks 1_000
   @parser_opts Plug.Parsers.init(
                  parsers: [:json],
-                 pass: ["application/json"],
                  json_decoder: Jason,
                  length: @max_body_bytes
                )

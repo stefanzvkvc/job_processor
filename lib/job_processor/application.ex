@@ -5,11 +5,8 @@ defmodule JobProcessor.Application do
 
   @impl Application
   def start(_type, _args) do
-    # List all child processes to be supervised
     children = if Application.fetch_env!(:job_processor, :server), do: [http_server()], else: []
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: JobProcessor.Supervisor]
     Supervisor.start_link(children, opts)
   end

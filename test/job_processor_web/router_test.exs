@@ -29,15 +29,17 @@ defmodule JobProcessorWeb.RouterTest do
            } = Jason.decode!(conn.resp_body)
   end
 
-  test "not found" do
-    conn = json_request(:post, "/unhandled", %{})
-    assert conn.status == 404
+  test "not found for any method on an unknown path" do
+    for method <- [:get, :post] do
+      conn = json_request(method, "/unhandled", %{})
+      assert conn.status == 404
 
-    assert %{
-             "status" => "error",
-             "message" => "Not Found",
-             "errors" => %{}
-           } = Jason.decode!(conn.resp_body)
+      assert %{
+               "status" => "error",
+               "message" => "Not Found",
+               "errors" => %{}
+             } = Jason.decode!(conn.resp_body)
+    end
   end
 
   test "rejects too many tasks" do
