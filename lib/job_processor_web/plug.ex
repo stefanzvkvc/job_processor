@@ -1,5 +1,10 @@
 defmodule JobProcessorWeb.Plug do
-  alias JobProcessor.{TaskSpec, Sorter}
+  @moduledoc """
+  Handles `POST /jobs`: parses and validates the job, sorts its tasks and
+  responds with JSON or a bash script, depending on the `Accept` header.
+  """
+
+  alias JobProcessor.{Sorter, TaskSpec}
   import Plug.Conn
 
   @allowed_methods ~w(POST)

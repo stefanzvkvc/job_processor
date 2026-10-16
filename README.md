@@ -126,6 +126,12 @@ Run the test suite with:
 mix test
 ```
 
+Check formatting and code style with:
+
+```bash
+mix format --check-formatted
+mix credo --strict
+```
 
 ## Design decisions
 

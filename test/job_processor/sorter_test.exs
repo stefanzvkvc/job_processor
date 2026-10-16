@@ -1,7 +1,7 @@
 defmodule JobProcessor.SorterTest do
   use ExUnit.Case, async: true
 
-  alias JobProcessor.{TaskSpec, Sorter}
+  alias JobProcessor.{Sorter, TaskSpec}
 
   test "sorts tasks by their dependencies" do
     tasks = [
