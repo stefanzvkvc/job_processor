@@ -270,7 +270,7 @@ The service already enforces these limits:
 - **Request body size: 1 MB.** `Plug.Parsers` accepts up to 8 MB by default. A realistic job of 1,000 tasks is around 200 KB, so 1 MB leaves headroom while stopping one request from tying up the server. Larger bodies return `413`.
 - **Maximum number of tasks: 1,000.** This bounds the sorter's O(n²) worst case to about a million cheap steps, which still finishes in milliseconds. Larger jobs return `400`.
 - **Maximum connections: 1,000.** Cowboy's connection limit is set explicitly, so the server's capacity is a deliberate choice rather than a hidden default.
-- **Timeouts.** Headers must arrive within 5 seconds and each chunk of the body within 5 seconds, and idle connections close after 15 seconds instead of Cowboy's default 60. Together with the connection limit, this stops slow clients from holding connections open indefinitely.
+- **Timeouts.** Headers must arrive within 5 seconds, and a connection that sends nothing for 15 seconds is closed instead of after Cowboy's default 60. This also covers a client that stops sending its body partway through. Together with the connection limit, this stops slow clients from holding connections open indefinitely.
 
 ### Testing
 

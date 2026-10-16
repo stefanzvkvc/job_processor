@@ -18,8 +18,7 @@ defmodule JobProcessorWeb.Plug do
         parsers: [:json],
         pass: ["application/json"],
         json_decoder: Jason,
-        length: @max_body_bytes,
-        read_timeout: 5_000
+        length: @max_body_bytes
       )
 
     Keyword.put(options, :parser_opts, parser_opts)
