@@ -98,6 +98,8 @@ cat /tmp/file1
 rm /tmp/file1
 ```
 
+The `set -e` line is a deliberate addition to the challenge's expected output. It stops the script at the first failing command; see [Stopping on the first failure](#stopping-on-the-first-failure).
+
 ### Run the generated script
 
 To test execution end to end, pipe the script into `bash`:
@@ -176,6 +178,8 @@ Only the first media type in `Accept` is considered, so `application/json, text/
 The bash script is returned without the JSON envelope, so it can be piped directly into `bash`. Errors are always returned as JSON.
 
 ### Stopping on the first failure
+
+**This is a deliberate deviation from the challenge's expected output, which has no `set -e` line.**
 
 I was thinking: what if one of the commands fails when the script runs? By default, bash ignores the failure and moves on to the next line. That breaks the whole point of the ordering: a task would still run even though a task it depends on just failed.
 
