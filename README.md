@@ -1,5 +1,7 @@
 # JobProcessor
 
+[![CI](https://github.com/stefanzvkvc/job_processor/actions/workflows/ci.yml/badge.svg)](https://github.com/stefanzvkvc/job_processor/actions/workflows/ci.yml)
+
 A lightweight Elixir application that exposes an HTTP endpoint for submitting jobs. A job is a list of tasks, each with a name and a shell command. Tasks can depend on other tasks, and the service returns them in an order where every task comes after the tasks it requires, either as JSON or as a ready-to-run bash script.
 
 ## Setup
