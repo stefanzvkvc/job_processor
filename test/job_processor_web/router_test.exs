@@ -56,6 +56,19 @@ defmodule JobProcessorWeb.RouterTest do
     assert conn.status == 413
   end
 
+  test "rejects a top-level JSON array" do
+    conn =
+      raw_request(:post, "/jobs", ~s([{"name": "a", "command": "echo a"}]), "application/json")
+
+    assert conn.status == 400
+
+    assert %{
+             "status" => "error",
+             "message" => "Request body must be an object containing a tasks list",
+             "errors" => %{}
+           } = Jason.decode!(conn.resp_body)
+  end
+
   test "rejects a missing tasks field" do
     conn = json_request(:post, "/jobs", %{})
     assert conn.status == 400
@@ -202,6 +215,13 @@ defmodule JobProcessorWeb.RouterTest do
              "status" => "error",
              "message" => "Circular dependency among: a, b"
            } = Jason.decode!(conn.resp_body)
+  end
+
+  test "returns errors as JSON even when a bash script is requested" do
+    conn = json_request(:post, "/jobs", %{"tasks" => []}, [{"accept", "text/plain"}])
+    assert conn.status == 400
+    assert ["application/json" <> _] = get_resp_header(conn, "content-type")
+    assert %{"status" => "error"} = Jason.decode!(conn.resp_body)
   end
 
   test "rejects an unknown dependency" do

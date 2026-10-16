@@ -2,10 +2,11 @@ defmodule JobProcessor.TaskSpecTest do
   use ExUnit.Case, async: true
   alias JobProcessor.TaskSpec
 
-  test "a missing or null requires becomes an empty list" do
+  test "a missing, null or empty requires becomes an empty list" do
     for params <- [
           %{"name" => "task-1", "command" => "touch /tmp/file1"},
-          %{"name" => "task-1", "command" => "touch /tmp/file1", "requires" => nil}
+          %{"name" => "task-1", "command" => "touch /tmp/file1", "requires" => nil},
+          %{"name" => "task-1", "command" => "touch /tmp/file1", "requires" => []}
         ] do
       changeset = TaskSpec.changeset(params)
 
@@ -76,5 +77,16 @@ defmodule JobProcessor.TaskSpecTest do
 
     errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
     assert errors.requires == ["cannot contain blank or null names"]
+  end
+
+  test "fields with the wrong type are invalid" do
+    valid = %{"name" => "task-1", "command" => "touch /tmp/file1"}
+
+    for {field, value} <- [{"name", 1}, {"command", 1}, {"requires", "task-1"}] do
+      changeset = TaskSpec.changeset(Map.put(valid, field, value))
+      errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+
+      assert errors == %{String.to_existing_atom(field) => ["is invalid"]}
+    end
   end
 end
