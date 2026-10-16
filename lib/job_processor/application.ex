@@ -6,8 +6,10 @@ defmodule JobProcessor.Application do
   @impl Application
   def start(_type, _args) do
     # List all child processes to be supervised
+    port = Application.fetch_env!(:job_processor, :port)
+
     children = [
-      {Plug.Cowboy, scheme: :http, plug: JobProcessorWeb.Plug, port: 4000}
+      {Plug.Cowboy, scheme: :http, plug: JobProcessorWeb.Plug, port: port}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

@@ -24,7 +24,7 @@ Start the application with:
 mix run --no-halt
 ```
 
-The server listens on port `4000`.
+The server listens on port `4000` by default. Set the `PORT` environment variable to change it.
 
 ### Example payload
 
