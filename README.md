@@ -156,11 +156,13 @@ The first `mix dialyzer` run builds a type cache in `priv/plts` and takes a few 
 
 Instead of using the full Phoenix framework, I chose Elixir with Plug and Plug.Cowboy. The project only requires a single HTTP endpoint, so a full web framework would introduce additional complexity without providing much immediate value.
 
-### Single endpoint without a router
+### Routing with Plug.Router
 
-The application exposes a single route: `POST /jobs`. I chose to implement the request handling directly with Plug rather than introduce a router. This keeps the routing and request-validation logic straightforward for the current scope.
+The application exposes a single route, `POST /jobs`, defined with `Plug.Router`. Other methods on `/jobs` return `405` with an `Allow: POST` header, and any other path returns `404`.
 
-If the application grows to support more endpoints, `Plug.Router` would become worthwhile.
+Even with one endpoint, the router keeps routing declarative instead of hand-written method and path checks, and adding an endpoint later, such as `GET /jobs/:id`, is one more route.
+
+The endpoint is named `/jobs` because each request is one job, made up of a list of tasks.
 
 ### Response format negotiation
 
@@ -253,7 +255,7 @@ All JSON responses share the same structure:
 | `200` | Tasks sorted |
 | `400` | Malformed JSON, invalid body structure, too many tasks or invalid task fields |
 | `404` | Unknown path |
-| `405` | Method other than `POST` |
+| `405` | Method other than `POST` on `/jobs` |
 | `413` | Request body larger than 1 MB |
 | `415` | `Content-Type` is missing or not `application/json` |
 | `422` | Duplicate names, unknown dependency or circular dependency |
@@ -279,4 +281,4 @@ The test suite covers:
 
 - **The sorter:** ordering of the challenge example, input order for independent tasks, and each error (duplicates, unknown dependency, cycle).
 - **Task validation:** required fields, blank values, and invalid or blank `requires` entries.
-- **The Plug:** method and path checks, malformed JSON, unsupported content types, body structure, task field validation, the `422` dependency errors, and successful JSON and bash responses.
+- **The router:** method and path checks, malformed JSON, unsupported content types, body structure, task field validation, the `422` dependency errors, and successful JSON and bash responses.

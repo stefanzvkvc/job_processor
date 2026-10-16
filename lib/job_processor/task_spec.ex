@@ -13,9 +13,9 @@ defmodule JobProcessor.TaskSpec do
 
   @primary_key false
   embedded_schema do
-    field(:name, :string)
-    field(:command, :string)
-    field(:requires, {:array, :string})
+    field :name, :string
+    field :command, :string
+    field :requires, {:array, :string}
   end
 
   @spec changeset(t(), map()) :: Ecto.Changeset.t()

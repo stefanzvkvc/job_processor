@@ -1,9 +1,9 @@
-defmodule JobProcessorWeb.PlugTest do
+defmodule JobProcessorWeb.RouterTest do
   use ExUnit.Case, async: true
   import Plug.Test
   import Plug.Conn
 
-  @opts JobProcessorWeb.Plug.init([])
+  @opts JobProcessorWeb.Router.init([])
   @example %{
     "tasks" => [
       %{"name" => "task-1", "command" => "touch /tmp/file1"},
@@ -20,6 +20,7 @@ defmodule JobProcessorWeb.PlugTest do
   test "method not allowed" do
     conn = json_request(:get, "/jobs", %{})
     assert conn.status == 405
+    assert get_resp_header(conn, "allow") == ["POST"]
 
     assert %{
              "status" => "error",
@@ -140,7 +141,7 @@ defmodule JobProcessorWeb.PlugTest do
   end
 
   test "rejects a missing content type" do
-    conn = conn(:post, "/jobs", Jason.encode!(@example)) |> JobProcessorWeb.Plug.call(@opts)
+    conn = conn(:post, "/jobs", Jason.encode!(@example)) |> JobProcessorWeb.Router.call(@opts)
     assert conn.status == 415
 
     assert %{
@@ -240,12 +241,12 @@ defmodule JobProcessorWeb.PlugTest do
     headers
     |> Enum.reduce(conn, fn {key, value}, conn -> put_req_header(conn, key, value) end)
     |> put_req_header("content-type", "application/json")
-    |> JobProcessorWeb.Plug.call(@opts)
+    |> JobProcessorWeb.Router.call(@opts)
   end
 
   defp raw_request(method, path, body, content_type) do
     conn(method, path, body)
     |> put_req_header("content-type", content_type)
-    |> JobProcessorWeb.Plug.call(@opts)
+    |> JobProcessorWeb.Router.call(@opts)
   end
 end

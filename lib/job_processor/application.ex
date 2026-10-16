@@ -11,7 +11,7 @@ defmodule JobProcessor.Application do
     children = [
       {Plug.Cowboy,
        scheme: :http,
-       plug: JobProcessorWeb.Plug,
+       plug: JobProcessorWeb.Router,
        port: port,
        transport_options: [max_connections: 1_000],
        protocol_options: [idle_timeout: 15_000, request_timeout: 5_000]}

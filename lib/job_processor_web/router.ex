@@ -1,62 +1,68 @@
-defmodule JobProcessorWeb.Plug do
+defmodule JobProcessorWeb.Router do
   @moduledoc """
-  Handles `POST /jobs`: parses and validates the job, sorts its tasks and
+  Routes `POST /jobs`: parses and validates the job, sorts its tasks and
   responds with JSON or a bash script, depending on the `Accept` header.
   """
 
-  alias JobProcessor.{Sorter, TaskSpec}
-  import Plug.Conn
+  use Plug.Router
 
-  @allowed_methods ~w(POST)
-  @allowed_paths ~w(/jobs)
+  alias JobProcessor.{Sorter, TaskSpec}
+
   @max_body_bytes 1_000_000
   @max_tasks 1_000
+  @parser_opts Plug.Parsers.init(
+                 parsers: [:json],
+                 pass: ["application/json"],
+                 json_decoder: Jason,
+                 length: @max_body_bytes
+               )
 
-  def init(options) do
-    parser_opts =
-      Plug.Parsers.init(
-        parsers: [:json],
-        pass: ["application/json"],
-        json_decoder: Jason,
-        length: @max_body_bytes
-      )
+  plug :match
+  plug :parse_body
+  plug :dispatch
 
-    Keyword.put(options, :parser_opts, parser_opts)
-  end
-
-  def call(conn, opts) do
-    parser_opts = Keyword.fetch!(opts, :parser_opts)
-    method = conn.method
-    request_path = conn.request_path
-
-    with :ok <- validate_method(method),
-         :ok <- validate_path(request_path),
-         {:ok, conn} <- parse_body(conn, parser_opts),
+  post "/jobs" do
+    with :ok <- validate_content_type(conn),
          :ok <- validate_body_params(conn.body_params),
          {:ok, tasks} <- validate_tasks(conn.body_params["tasks"]),
          {:ok, sorted} <- sort(tasks) do
       respond(conn, sorted)
     else
-      {:error, status_code, details} ->
-        send_json(conn, status_code, Map.put(details, :status, :error))
+      {:error, status_code, message, errors} -> send_error(conn, status_code, message, errors)
     end
   end
 
-  defp validate_method(method) when method in @allowed_methods, do: :ok
-  defp validate_method(_), do: error(405, "Method Not Allowed")
+  match "/jobs" do
+    conn
+    |> put_resp_header("allow", "POST")
+    |> send_error(405, "Method Not Allowed")
+  end
 
-  defp validate_path(path) when path in @allowed_paths, do: :ok
-  defp validate_path(_), do: error(404, "Not Found")
+  match _ do
+    send_error(conn, 404, "Not Found")
+  end
 
-  defp parse_body(conn, parser_opts) do
+  # Plug.Parsers raises on bodies it cannot accept; these are client errors,
+  # so they get the same JSON error response as every other bad request.
+  defp parse_body(conn, _opts) do
+    Plug.Parsers.call(conn, @parser_opts)
+  rescue
+    Plug.Parsers.ParseError ->
+      conn |> send_error(400, "Malformed JSON") |> halt()
+
+    Plug.Parsers.RequestTooLargeError ->
+      conn |> send_error(413, "Request body is too large") |> halt()
+
+    Plug.Parsers.UnsupportedMediaTypeError ->
+      conn |> send_error(415, "Content-Type must be application/json") |> halt()
+  end
+
+  # Plug.Parsers skips requests without a Content-Type, so check for it here.
+  defp validate_content_type(conn) do
     case get_req_header(conn, "content-type") do
       [] -> error(415, "Content-Type must be application/json")
-      _ -> {:ok, Plug.Parsers.call(conn, parser_opts)}
+      _ -> :ok
     end
-  rescue
-    Plug.Parsers.ParseError -> error(400, "Malformed JSON")
-    Plug.Parsers.RequestTooLargeError -> error(413, "Request body is too large")
-    Plug.Parsers.UnsupportedMediaTypeError -> error(415, "Content-Type must be application/json")
   end
 
   defp validate_body_params(%{"tasks" => tasks})
@@ -118,12 +124,6 @@ defmodule JobProcessorWeb.Plug do
     end
   end
 
-  defp send_json(conn, status_code, data) do
-    conn
-    |> put_resp_content_type("application/json")
-    |> send_resp(status_code, Jason.encode!(data))
-  end
-
   defp wants_bash?(conn) do
     case get_req_header(conn, "accept") do
       [accept | _] ->
@@ -138,8 +138,16 @@ defmodule JobProcessorWeb.Plug do
     end
   end
 
-  defp error(status_code, message, errors \\ %{}) do
-    {:error, status_code, %{message: message, errors: errors}}
+  defp error(status_code, message, errors \\ %{}), do: {:error, status_code, message, errors}
+
+  defp send_error(conn, status_code, message, errors \\ %{}) do
+    send_json(conn, status_code, %{status: :error, message: message, errors: errors})
+  end
+
+  defp send_json(conn, status_code, data) do
+    conn
+    |> put_resp_content_type("application/json")
+    |> send_resp(status_code, Jason.encode!(data))
   end
 
   defp format_error({:duplicate_names, names}),
