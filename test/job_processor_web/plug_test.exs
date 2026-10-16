@@ -252,6 +252,17 @@ defmodule JobProcessorWeb.PlugTest do
            } = Jason.decode!(conn.resp_body)
   end
 
+  test "rejects a missing content type" do
+    conn = conn(:post, "/tasks", Jason.encode!(@example)) |> JobProcessorWeb.Plug.call(@opts)
+    assert conn.status == 415
+
+    assert %{
+             "status" => "error",
+             "message" => "Content-Type must be application/json",
+             "errors" => %{}
+           } = Jason.decode!(conn.resp_body)
+  end
+
   test "accepts a valid tasks list" do
     conn =
       json_request(:post, "/tasks", %{

@@ -165,7 +165,7 @@ So the generated script starts with `set -e`, which makes bash stop at the first
 
 Request validation happens in stages, each with its own status code:
 
-1. **Body parsing:** Malformed JSON returns `400`. A non-JSON `Content-Type` returns `415`. A body larger than 1 MB returns `413`.
+1. **Body parsing:** Malformed JSON returns `400`. A missing or non-JSON `Content-Type` returns `415`. A body larger than 1 MB returns `413`.
 2. **Body structure:** The body must contain a non-empty `tasks` list of at most 1,000 items, and each item must be a JSON object (`400`).
 3. **Task fields:** Each task is validated with an embedded Ecto schema and changeset (`400`). Errors are reported for every invalid task, keyed by its position, for example `tasks[1]`.
 4. **Dependencies:** The sorter rejects duplicate task names, unknown dependencies and circular dependencies (`422`).
@@ -230,7 +230,7 @@ All JSON responses share the same structure:
 | `404` | Unknown path |
 | `405` | Method other than `POST` |
 | `413` | Request body larger than 1 MB |
-| `415` | `Content-Type` is not `application/json` |
+| `415` | `Content-Type` is missing or not `application/json` |
 | `422` | Duplicate names, unknown dependency or circular dependency |
 
 This allows clients to handle errors consistently without having to parse language-specific error representations.

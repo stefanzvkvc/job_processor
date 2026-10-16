@@ -45,7 +45,10 @@ defmodule JobProcessorWeb.Plug do
   defp validate_path(_), do: error(404, "Not Found")
 
   defp parse_body(conn, parser_opts) do
-    {:ok, Plug.Parsers.call(conn, parser_opts)}
+    case get_req_header(conn, "content-type") do
+      [] -> error(415, "Content-Type must be application/json")
+      _ -> {:ok, Plug.Parsers.call(conn, parser_opts)}
+    end
   rescue
     Plug.Parsers.ParseError -> error(400, "Malformed JSON")
     Plug.Parsers.RequestTooLargeError -> error(413, "Request body is too large")
