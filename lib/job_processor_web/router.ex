@@ -6,7 +6,7 @@ defmodule JobProcessorWeb.Router do
 
   use Plug.Router
 
-  alias JobProcessor.{Sorter, TaskSpec}
+  alias JobProcessor.{Script, Sorter, TaskSpec}
 
   @max_body_bytes 1_000_000
   @max_tasks 1_000
@@ -109,13 +109,9 @@ defmodule JobProcessorWeb.Router do
 
   defp respond(conn, sorted) do
     if wants_bash?(conn) do
-      script =
-        Enum.join(["#!/usr/bin/env bash", "set -e" | Enum.map(sorted, & &1.command)], "\n") <>
-          "\n"
-
       conn
       |> put_resp_content_type("text/plain")
-      |> send_resp(200, script)
+      |> send_resp(200, Script.render(sorted))
     else
       send_json(conn, 200, %{
         status: :success,
