@@ -286,6 +286,6 @@ The service already enforces these limits:
 The test suite covers:
 
 - **The script renderer:** commands in order after the shebang and `set -e`.
-- **The sorter:** ordering of the challenge example, input order for independent tasks, and each error (duplicates, unknown dependency, cycle).
+- **The sorter:** ordering of the challenge example, a diamond and a 100-task chain given in reverse, input order for independent tasks, and each error: duplicates (which win over unknown dependencies), unknown dependency, a cycle, a task requiring itself, and a task that only depends on a cycle.
 - **Task validation:** required fields, blank values, fields with the wrong type, a missing, `null` or empty `requires` becoming an empty list, and invalid or blank `requires` entries.
 - **The router:** method and path checks, malformed JSON, a top-level JSON array, unsupported content types, body structure, the `422` task field and dependency errors, successful JSON and bash responses, and errors staying JSON when a bash script is requested.

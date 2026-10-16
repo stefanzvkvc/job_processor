@@ -51,4 +51,53 @@ defmodule JobProcessor.SorterTest do
 
     assert {:error, {:cycle, ["a", "b"]}} = Sorter.sort(tasks)
   end
+
+  test "sorts a diamond so the shared dependency runs first" do
+    tasks = [
+      %TaskSpec{name: "a", command: "echo a", requires: ["b", "c"]},
+      %TaskSpec{name: "b", command: "echo b", requires: ["d"]},
+      %TaskSpec{name: "c", command: "echo c", requires: ["d"]},
+      %TaskSpec{name: "d", command: "echo d"}
+    ]
+
+    assert {:ok, sorted} = Sorter.sort(tasks)
+    assert Enum.map(sorted, & &1.name) == ["d", "b", "c", "a"]
+  end
+
+  test "sorts a long chain given in reverse order" do
+    names = for i <- 1..100, do: "t#{i}"
+
+    tasks =
+      for {name, previous} <- Enum.zip(names, [nil | names]) do
+        %TaskSpec{name: name, command: "echo #{name}", requires: List.wrap(previous)}
+      end
+
+    assert {:ok, sorted} = Sorter.sort(Enum.reverse(tasks))
+    assert Enum.map(sorted, & &1.name) == names
+  end
+
+  test "rejects a task that requires itself" do
+    tasks = [%TaskSpec{name: "a", command: "echo a", requires: ["a"]}]
+
+    assert {:error, {:cycle, ["a"]}} = Sorter.sort(tasks)
+  end
+
+  test "reports tasks that depend on a cycle as part of it" do
+    tasks = [
+      %TaskSpec{name: "a", command: "echo a", requires: ["b"]},
+      %TaskSpec{name: "b", command: "echo b", requires: ["a"]},
+      %TaskSpec{name: "c", command: "echo c", requires: ["a"]}
+    ]
+
+    assert {:error, {:cycle, ["a", "b", "c"]}} = Sorter.sort(tasks)
+  end
+
+  test "reports duplicate names before unknown dependencies" do
+    tasks = [
+      %TaskSpec{name: "a", command: "echo a"},
+      %TaskSpec{name: "a", command: "echo again", requires: ["ghost"]}
+    ]
+
+    assert {:error, {:duplicate_names, ["a"]}} = Sorter.sort(tasks)
+  end
 end
