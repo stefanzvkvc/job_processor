@@ -126,12 +126,15 @@ Run the test suite with:
 mix test
 ```
 
-Check formatting and code style with:
+Check formatting, code style and types with:
 
 ```bash
 mix format --check-formatted
 mix credo --strict
+mix dialyzer
 ```
+
+The first `mix dialyzer` run builds a type cache in `priv/plts` and takes a few minutes; later runs take seconds.
 
 ## Design decisions
 
