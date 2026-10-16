@@ -8,14 +8,14 @@ defmodule JobProcessor.TaskSpec do
   @type t :: %__MODULE__{
           name: String.t() | nil,
           command: String.t() | nil,
-          requires: [String.t()] | nil
+          requires: [String.t()]
         }
 
   @primary_key false
   embedded_schema do
     field :name, :string
     field :command, :string
-    field :requires, {:array, :string}
+    field :requires, {:array, :string}, default: []
   end
 
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
@@ -23,6 +23,7 @@ defmodule JobProcessor.TaskSpec do
     schema
     |> cast(params, [:name, :command, :requires])
     |> validate_required([:name, :command])
+    |> update_change(:requires, &(&1 || []))
     |> validate_requires()
   end
 

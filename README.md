@@ -205,7 +205,7 @@ I chose Ecto for task validation instead of writing my own checks. Ecto is the s
 
 ### Validation of `requires`
 
-The `requires` field is optional. If it is omitted, `null` or an empty list `[]`, the task has no dependencies. An empty list and a missing key mean the same thing, and many clients serialize empty arrays as `[]`, so both are accepted.
+The `requires` field is optional. If it is omitted, `null` or an empty list `[]`, the task has no dependencies. An empty list and a missing key mean the same thing, and many clients serialize empty arrays as `[]`, so both are accepted. Validation turns all three into an empty list, so the sorter never has to handle a missing value.
 
 Blank or `null` entries are rejected, for example `[" "]` or `["task-1", null]`. A blank entry usually points to a client bug, such as an empty form field, and silently dropping it could let a task run before something it was meant to wait for. Ecto removes blank array elements during casting, so this check reads the raw request parameters to see exactly what the client sent.
 
@@ -283,5 +283,5 @@ The test suite covers:
 
 - **The script renderer:** commands in order after the shebang and `set -e`.
 - **The sorter:** ordering of the challenge example, input order for independent tasks, and each error (duplicates, unknown dependency, cycle).
-- **Task validation:** required fields, blank values, and invalid or blank `requires` entries.
+- **Task validation:** required fields, blank values, a missing or `null` `requires` becoming an empty list, and invalid or blank `requires` entries.
 - **The router:** method and path checks, malformed JSON, unsupported content types, body structure, the `422` task field and dependency errors, and successful JSON and bash responses.

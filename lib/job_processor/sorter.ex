@@ -38,9 +38,7 @@ defmodule JobProcessor.Sorter do
     end
   end
 
-  defp ready?(task, done), do: Enum.all?(requires(task), &MapSet.member?(done, &1))
-
-  defp requires(task), do: task.requires || []
+  defp ready?(task, done), do: Enum.all?(task.requires, &MapSet.member?(done, &1))
 
   defp check_duplicates(tasks) do
     case for {name, n} <- Enum.frequencies_by(tasks, & &1.name), n > 1, do: name do
@@ -52,7 +50,7 @@ defmodule JobProcessor.Sorter do
   defp check_unknown_dependencies(tasks) do
     names = MapSet.new(tasks, & &1.name)
 
-    case for t <- tasks, dep <- requires(t), not MapSet.member?(names, dep), do: {t.name, dep} do
+    case for t <- tasks, dep <- t.requires, not MapSet.member?(names, dep), do: {t.name, dep} do
       [] -> :ok
       [{task, dep} | _] -> {:error, {:unknown_dependency, task, dep}}
     end

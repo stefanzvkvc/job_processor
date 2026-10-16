@@ -2,14 +2,16 @@ defmodule JobProcessor.TaskSpecTest do
   use ExUnit.Case, async: true
   alias JobProcessor.TaskSpec
 
-  test "valid parameters return a valid changeset, without requires" do
-    params = %{
-      "name" => "task-1",
-      "command" => "touch /tmp/file1"
-    }
+  test "a missing or null requires becomes an empty list" do
+    for params <- [
+          %{"name" => "task-1", "command" => "touch /tmp/file1"},
+          %{"name" => "task-1", "command" => "touch /tmp/file1", "requires" => nil}
+        ] do
+      changeset = TaskSpec.changeset(params)
 
-    changeset = TaskSpec.changeset(params)
-    assert changeset.valid?
+      assert changeset.valid?
+      assert Ecto.Changeset.apply_changes(changeset).requires == []
+    end
   end
 
   test "valid parameters return a valid changeset, with requires" do
