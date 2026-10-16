@@ -44,7 +44,7 @@ Save the challenge example as `example.json`:
 ### Get the sorted tasks as JSON
 
 ```bash
-curl -X POST http://localhost:4000/tasks \
+curl -X POST http://localhost:4000/jobs \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
   -d @example.json
@@ -67,7 +67,7 @@ Response (`200 OK`):
 ### Get the sorted tasks as a bash script
 
 ```bash
-curl -X POST http://localhost:4000/tasks \
+curl -X POST http://localhost:4000/jobs \
   -H "Content-Type: application/json" \
   -H "Accept: text/plain" \
   -d @example.json
@@ -89,7 +89,7 @@ rm /tmp/file1
 To test execution end to end, pipe the script into `bash`:
 
 ```bash
-curl -s -X POST http://localhost:4000/tasks \
+curl -s -X POST http://localhost:4000/jobs \
   -H "Content-Type: application/json" \
   -H "Accept: text/plain" \
   -d @example.json | bash
@@ -102,7 +102,7 @@ This prints `Hello World!`. The service itself never runs commands (see [Securit
 A circular dependency returns `422 Unprocessable Entity`:
 
 ```bash
-curl -X POST http://localhost:4000/tasks \
+curl -X POST http://localhost:4000/jobs \
   -H "Content-Type: application/json" \
   -d '{"tasks": [
         {"name": "a", "command": "echo a", "requires": ["b"]},
@@ -135,7 +135,7 @@ Instead of using the full Phoenix framework, I chose Elixir with Plug and Plug.C
 
 ### Single endpoint without a router
 
-The application exposes a single route: `POST /tasks`. I chose to implement the request handling directly with Plug rather than introduce a router. This keeps the routing and request-validation logic straightforward for the current scope.
+The application exposes a single route: `POST /jobs`. I chose to implement the request handling directly with Plug rather than introduce a router. This keeps the routing and request-validation logic straightforward for the current scope.
 
 If the application grows to support more endpoints, `Plug.Router` would become worthwhile.
 
@@ -199,7 +199,7 @@ Duplicate names and unknown dependencies are checked before sorting, so the sort
 
 Sorting runs synchronously within the request:
 
-1. The client sends `POST /tasks`.
+1. The client sends `POST /jobs`.
 2. The server validates and sorts the tasks in memory.
 3. The server responds `200 OK` with the sorted JSON or the bash script.
 

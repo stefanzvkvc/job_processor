@@ -1,9 +1,9 @@
 defmodule JobProcessorWeb.Plug do
-  alias JobProcessor.{Request, Sorter}
+  alias JobProcessor.{TaskSpec, Sorter}
   import Plug.Conn
 
   @allowed_methods ~w(POST)
-  @allowed_paths ~w(/tasks)
+  @allowed_paths ~w(/jobs)
   @max_body_bytes 1_000_000
   @max_tasks 1_000
 
@@ -78,7 +78,7 @@ defmodule JobProcessorWeb.Plug do
   end
 
   defp validate_tasks(tasks) do
-    changesets = Enum.map(tasks, &Request.changeset/1)
+    changesets = Enum.map(tasks, &TaskSpec.changeset/1)
 
     errors =
       for {changeset, i} <- Enum.with_index(changesets), not changeset.valid?, into: %{} do

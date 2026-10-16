@@ -1,6 +1,6 @@
-defmodule JobProcessor.Request do
+defmodule JobProcessor.TaskSpec do
   @moduledoc """
-  Defines the data contract using in-memory schema.
+  Validates a single task from the request body: name, command and optional requires.
   """
   use Ecto.Schema
   import Ecto.Changeset

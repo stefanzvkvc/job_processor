@@ -18,7 +18,7 @@ defmodule JobProcessorWeb.PlugTest do
   }
 
   test "method not allowed" do
-    conn = json_request(:get, "/tasks", %{})
+    conn = json_request(:get, "/jobs", %{})
     assert conn.status == 405
 
     assert %{
@@ -41,7 +41,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects too many tasks" do
     tasks = for i <- 1..1001, do: %{"name" => "t#{i}", "command" => "echo #{i}"}
-    conn = json_request(:post, "/tasks", %{"tasks" => tasks})
+    conn = json_request(:post, "/jobs", %{"tasks" => tasks})
 
     assert conn.status == 400
     assert %{"message" => "A job can contain at most 1000 tasks"} = Jason.decode!(conn.resp_body)
@@ -50,13 +50,13 @@ defmodule JobProcessorWeb.PlugTest do
   test "rejects a body that is too large" do
     command = String.duplicate("x", 1_000_001)
 
-    conn = json_request(:post, "/tasks", %{"tasks" => [%{"name" => "a", "command" => command}]})
+    conn = json_request(:post, "/jobs", %{"tasks" => [%{"name" => "a", "command" => command}]})
 
     assert conn.status == 413
   end
 
   test "rejects a missing tasks field" do
-    conn = json_request(:post, "/tasks", %{})
+    conn = json_request(:post, "/jobs", %{})
     assert conn.status == 400
 
     assert %{
@@ -67,7 +67,7 @@ defmodule JobProcessorWeb.PlugTest do
   end
 
   test "rejects tasks when the field is not a list" do
-    conn = json_request(:post, "/tasks", %{"tasks" => %{"name" => "task-1"}})
+    conn = json_request(:post, "/jobs", %{"tasks" => %{"name" => "task-1"}})
     assert conn.status == 400
 
     assert %{
@@ -78,7 +78,7 @@ defmodule JobProcessorWeb.PlugTest do
   end
 
   test "rejects an empty tasks list" do
-    conn = json_request(:post, "/tasks", %{"tasks" => []})
+    conn = json_request(:post, "/jobs", %{"tasks" => []})
     assert conn.status == 400
 
     assert %{
@@ -89,7 +89,7 @@ defmodule JobProcessorWeb.PlugTest do
   end
 
   test "rejects a tasks list containing non-object values" do
-    conn = json_request(:post, "/tasks", %{"tasks" => ["not an object"]})
+    conn = json_request(:post, "/jobs", %{"tasks" => ["not an object"]})
     assert conn.status == 400
 
     assert %{
@@ -101,7 +101,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects a task with a missing name" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [
           %{"command" => "touch /tmp/file1"}
         ]
@@ -118,7 +118,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects a task with a missing command" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [
           %{"name" => "task-1"}
         ]
@@ -135,7 +135,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects a task with missing and blank required fields" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [
           %{"name" => "   "}
         ]
@@ -154,7 +154,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects a task when requires array contains non-string values" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [
           %{
             "name" => "task-3",
@@ -175,7 +175,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects a task when requires array contains empty values" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [
           %{
             "name" => "task-4",
@@ -198,7 +198,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects a list containing an invalid task" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [
           %{"name" => "task-1", "command" => "touch /tmp/file1"},
           %{"name" => "task-2"}
@@ -216,7 +216,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects a task when requires contains null" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [%{"name" => "a", "command" => "x", "requires" => ["task-1", nil]}]
       })
 
@@ -231,7 +231,7 @@ defmodule JobProcessorWeb.PlugTest do
   end
 
   test "rejects malformed JSON" do
-    conn = raw_request(:post, "/tasks", ~s({"tasks": [), "application/json")
+    conn = raw_request(:post, "/jobs", ~s({"tasks": [), "application/json")
     assert conn.status == 400
 
     assert %{
@@ -242,7 +242,7 @@ defmodule JobProcessorWeb.PlugTest do
   end
 
   test "rejects a non-JSON content type" do
-    conn = raw_request(:post, "/tasks", "tasks=task-1", "text/plain")
+    conn = raw_request(:post, "/jobs", "tasks=task-1", "text/plain")
     assert conn.status == 415
 
     assert %{
@@ -253,7 +253,7 @@ defmodule JobProcessorWeb.PlugTest do
   end
 
   test "rejects a missing content type" do
-    conn = conn(:post, "/tasks", Jason.encode!(@example)) |> JobProcessorWeb.Plug.call(@opts)
+    conn = conn(:post, "/jobs", Jason.encode!(@example)) |> JobProcessorWeb.Plug.call(@opts)
     assert conn.status == 415
 
     assert %{
@@ -265,7 +265,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "accepts a valid tasks list" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [
           %{"name" => "task-1", "command" => "touch /tmp/file1"}
         ]
@@ -281,7 +281,7 @@ defmodule JobProcessorWeb.PlugTest do
   end
 
   test "returns sorted tasks as JSON" do
-    conn = json_request(:post, "/tasks", @example)
+    conn = json_request(:post, "/jobs", @example)
     assert conn.status == 200
 
     assert %{
@@ -296,7 +296,7 @@ defmodule JobProcessorWeb.PlugTest do
   end
 
   test "returns sorted tasks as a bash script" do
-    conn = json_request(:post, "/tasks", @example, [{"accept", "text/plain"}])
+    conn = json_request(:post, "/jobs", @example, [{"accept", "text/plain"}])
     assert conn.status == 200
     assert ["text/plain" <> _] = get_resp_header(conn, "content-type")
 
@@ -312,7 +312,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects a circular dependency" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [
           %{"name" => "a", "command" => "echo a", "requires" => ["b"]},
           %{"name" => "b", "command" => "echo b", "requires" => ["a"]}
@@ -329,7 +329,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects an unknown dependency" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [%{"name" => "a", "command" => "echo a", "requires" => ["ghost"]}]
       })
 
@@ -343,7 +343,7 @@ defmodule JobProcessorWeb.PlugTest do
 
   test "rejects duplicate task names" do
     conn =
-      json_request(:post, "/tasks", %{
+      json_request(:post, "/jobs", %{
         "tasks" => [
           %{"name" => "a", "command" => "echo a"},
           %{"name" => "a", "command" => "echo again"}

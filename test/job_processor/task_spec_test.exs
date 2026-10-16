@@ -1,6 +1,6 @@
-defmodule JobProcessor.RequestTest do
+defmodule JobProcessor.TaskSpecTest do
   use ExUnit.Case, async: true
-  alias JobProcessor.Request
+  alias JobProcessor.TaskSpec
 
   test "valid parameters return a valid changeset, without requires" do
     params = %{
@@ -8,7 +8,7 @@ defmodule JobProcessor.RequestTest do
       "command" => "touch /tmp/file1"
     }
 
-    changeset = Request.changeset(params)
+    changeset = TaskSpec.changeset(params)
     assert changeset.valid?
   end
 
@@ -19,13 +19,13 @@ defmodule JobProcessor.RequestTest do
       "requires" => ["task-3"]
     }
 
-    changeset = Request.changeset(params)
+    changeset = TaskSpec.changeset(params)
     assert changeset.valid?
   end
 
   test "missing or blank fields return validation errors" do
     params = %{"name" => "   "}
-    changeset = Request.changeset(params)
+    changeset = TaskSpec.changeset(params)
 
     refute changeset.valid?
     errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
@@ -41,7 +41,7 @@ defmodule JobProcessor.RequestTest do
       "requires" => ["task-1", 123]
     }
 
-    changeset = Request.changeset(params)
+    changeset = TaskSpec.changeset(params)
     refute changeset.valid?
 
     errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
@@ -55,7 +55,7 @@ defmodule JobProcessor.RequestTest do
       "requires" => ["      ", " "]
     }
 
-    changeset = Request.changeset(params)
+    changeset = TaskSpec.changeset(params)
     refute changeset.valid?
 
     errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
@@ -69,7 +69,7 @@ defmodule JobProcessor.RequestTest do
       "requires" => ["task-1", nil]
     }
 
-    changeset = Request.changeset(params)
+    changeset = TaskSpec.changeset(params)
     refute changeset.valid?
 
     errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
