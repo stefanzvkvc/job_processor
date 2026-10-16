@@ -146,6 +146,8 @@ The response format is chosen from the request's `Accept` header:
 - `Accept: text/plain` returns the bash script as plain text.
 - Anything else, including a missing header or `*/*` (curl's default), returns JSON.
 
+Only the first media type in `Accept` is considered, so `application/json, text/plain` returns JSON. Quality values (`q=`) are not parsed, which keeps the logic simple while matching what clients send in practice.
+
 The bash script is returned without the JSON envelope, so it can be piped directly into `bash`. Errors are always returned as JSON.
 
 ### Stopping on the first failure

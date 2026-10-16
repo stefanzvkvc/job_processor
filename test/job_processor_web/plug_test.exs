@@ -310,6 +310,12 @@ defmodule JobProcessorWeb.PlugTest do
            """
   end
 
+  test "returns JSON when it is listed before text/plain in Accept" do
+    conn = json_request(:post, "/jobs", @example, [{"accept", "application/json, text/plain"}])
+    assert conn.status == 200
+    assert ["application/json" <> _] = get_resp_header(conn, "content-type")
+  end
+
   test "rejects a circular dependency" do
     conn =
       json_request(:post, "/jobs", %{

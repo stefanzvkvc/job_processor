@@ -121,9 +121,17 @@ defmodule JobProcessorWeb.Plug do
   end
 
   defp wants_bash?(conn) do
-    conn
-    |> get_req_header("accept")
-    |> Enum.any?(&String.contains?(&1, ["text/plain", "text/x-shellscript"]))
+    case get_req_header(conn, "accept") do
+      [accept | _] ->
+        accept
+        |> String.split(",")
+        |> hd()
+        |> String.trim()
+        |> String.starts_with?(["text/plain", "text/x-shellscript"])
+
+      [] ->
+        false
+    end
   end
 
   defp error(status_code, message, errors \\ %{}) do
