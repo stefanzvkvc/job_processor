@@ -4,6 +4,14 @@
 
 A lightweight Elixir application that exposes an HTTP endpoint for submitting jobs. A job is a list of tasks, each with a name and a shell command. Tasks can depend on other tasks, and the service returns them in an order where every task comes after the tasks it requires, either as JSON or as a ready-to-run bash script.
 
+## Assumptions
+
+- Commands are opaque strings. The service orders and returns them but never executes them.
+- Task names are case-sensitive and never trimmed, so `Task-1` and ` task-1 ` are different from `task-1`.
+- Independent tasks keep their input order, so the same job always produces the same output.
+- Unknown fields in the body or in a task are ignored.
+- A job must contain at least one task; an empty job is rejected.
+
 ## Setup
 
 ### Requirements
@@ -181,9 +189,7 @@ The bash script is returned without the JSON envelope, so it can be piped direct
 
 **This is a deliberate deviation from the challenge's expected output, which has no `set -e` line.**
 
-I was thinking: what if one of the commands fails when the script runs? By default, bash ignores the failure and moves on to the next line. That breaks the whole point of the ordering: a task would still run even though a task it depends on just failed.
-
-For example, if a job backs up a database and then drops it, a failed backup should never be followed by the drop:
+By default, bash continues after a command fails. That would defeat the purpose of the ordering: a task could run even though a task it depends on had just failed. For example, a failed backup should never be followed by dropping the database:
 
 ```bash
 pg_dump mydb > backup.sql   # fails
@@ -238,7 +244,7 @@ Sorting runs synchronously within the request:
 
 I chose this over an asynchronous design because:
 
-- The work is fast. The service only reorders data in memory, and sorting finishes almost instantly.
+- The work is fast. The service only reorders data in memory, and realistic jobs sort in milliseconds.
 - There is no slow dependency, such as a third-party call or heavy computation, that would justify background processing.
 - An async version would be over-engineering for this task. It would need:
   - a `202 Accepted` response with a job ID,
@@ -270,16 +276,7 @@ This allows clients to handle errors consistently without having to parse langua
 
 ### Security
 
-The service never executes commands. It only orders them and returns them. Running the generated script (for example by piping it into `bash`) is the caller's decision and responsibility.
-
-In production, a service like this would usually sit behind an API gateway that handles rate limiting, blocks abusive clients and drops malicious traffic before it reaches the application. The challenge doesn't include that layer, so within the service itself I would add rate limiting per client IP with the [Hammer](https://hex.pm/packages/hammer) library to protect against request floods.
-
-The service already enforces these limits:
-
-- **Request body size: 1 MB.** `Plug.Parsers` accepts up to 8 MB by default. A realistic job of 1,000 tasks is around 200 KB, so 1 MB leaves headroom while stopping one request from tying up the server. Larger bodies return `413`.
-- **Maximum number of tasks: 1,000.** Together with the body size limit, this bounds the sorter's worst case to about 1.4 seconds for a deliberately crafted request (see [Sorting algorithm](#sorting-algorithm)). Larger jobs return `400`.
-- **Maximum connections: 1,000.** Cowboy's connection limit is set explicitly, so the server's capacity is a deliberate choice rather than a hidden default.
-- **Timeouts.** Headers must arrive within 5 seconds, and a connection that sends nothing for 15 seconds is closed instead of after Cowboy's default 60. This also covers a client that stops sending its body partway through. Together with the connection limit, this stops slow clients from holding connections open indefinitely.
+The service never executes commands; running the generated script is the caller's decision. To keep the synchronous design safe, it limits the body to 1 MB (`413`) and a job to 1,000 tasks (`400`), which bounds the sorter's worst case (see [Sorting algorithm](#sorting-algorithm)). It also caps connections at 1,000 and closes connections whose headers take longer than 5 seconds or that send nothing for 15 seconds.
 
 ### Testing
 
@@ -289,3 +286,16 @@ The test suite covers:
 - **The sorter:** ordering of the challenge example, a diamond and a 100-task chain given in reverse, input order for independent tasks, and each error: duplicates (which win over unknown dependencies), unknown dependency, a cycle, a task requiring itself, and a task that only depends on a cycle.
 - **Task validation:** required fields, blank values, fields with the wrong type, a missing, `null` or empty `requires` becoming an empty list, and invalid or blank `requires` entries.
 - **The router:** method and path checks, malformed JSON, a top-level JSON array, unsupported content types, body structure, the `422` task field and dependency errors, successful JSON and bash responses, and errors staying JSON when a bash script is requested.
+
+## With more time
+
+Deliberate scope cuts, roughly in the order I would pick them up:
+
+- **A near-linear sort:** Kahn's algorithm with a priority queue of input positions, which removes the 1.4-second worst case while keeping input order.
+- **Exact cycle reporting:** a depth-first search that reports the loop itself, such as `a → b → a`, instead of every task that cannot run.
+- **Property-based tests** for the sorter with StreamData, checking the ordering on randomly generated dependency graphs.
+- **All unknown dependencies reported at once,** keyed per task like the field errors, instead of only the first one.
+- **Rate limiting** per client with [Hammer](https://hex.pm/packages/hammer), or at an API gateway in front of the service.
+- **Observability:** request logs with a request ID (`Plug.RequestId`, `Plug.Logger`), `:telemetry` events for request duration, job size and sort time exported as Prometheus metrics, and OpenTelemetry tracing if the service joined a larger system.
+- **An async flow** (`202 Accepted` and a `GET /jobs/:id` polling endpoint) if jobs ever became large.
+- **Phoenix,** if the API grew beyond a few endpoints.
